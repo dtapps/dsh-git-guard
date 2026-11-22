@@ -1,0 +1,7 @@
+# Package artifacts
+node_modules/
+*.tgz
+
+# OS noise
+.DS_Store
+Thumbs.db

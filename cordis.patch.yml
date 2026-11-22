@@ -1,0 +1,11 @@
+# Bundle patch layer for dsh-git-guard.
+#
+# The single row mounts the Host plugin in the profile's global tool scope, so
+# its `ctx.tools.guard()` denial covers every agent and subagent in the
+# profile — including tool calls made through `run_code` and terminal sessions.
+- insert:
+    - id: dsh-git-guard
+      name: '@local/dsh-git-guard'
+      config:
+        enabled: true
+        promptNotice: true
