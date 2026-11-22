@@ -2,6 +2,8 @@
 
 阻止 agent 自行执行 `git commit`、`git push` 等写操作，装到 profile 后对整个 Harness 生效。
 
+[![定时构建](https://cnb.cool/dtapp/dsh-git-guard/-/badge/git/latest/ci/status/crontab)](https://cnb.cool/dtapp/dsh-git-guard/-/pipeline) [![流水线配置](https://cnb.cool/dtapp/dsh-git-guard/-/badge/git/latest/ci/pipeline-as-code)](https://cnb.cool/dtapp/dsh-git-guard/-/blob/main/.cnb.yml) [![漏洞扫描](https://cnb.cool/dtapp/dsh-git-guard/-/badge/security/vulnerability/full/latest)](https://cnb.cool/dtapp/dsh-git-guard/-/security) [![NPM 拉取次数](https://commit.cool/badge/package/npm/pulls/dtapp/dsh)](https://npm.cnb.cool/dtapp/dsh/-/packages/) [![CNB 访问](https://commit.cool/badge/visit/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 星标](https://cnb.cool/dtapp/dsh-git-guard/-/badge/star)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 分叉](https://cnb.cool/dtapp/dsh-git-guard/-/badge/fork)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 仓库年龄](https://commit.cool/badge/age/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 主要语言](https://commit.cool/badge/language/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 许可证](https://commit.cool/badge/license/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 存储用量](https://commit.cool/badge/usage/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB Git 存储](https://commit.cool/badge/usage/git/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB LFS 存储](https://commit.cool/badge/usage/lfs/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) 
+
 ## 安装到 DeepSeekHarness
 
 代码仓库：https://cnb.cool/dtapp/dsh-git-guard ；npm 包发布在 CNB 制品库
@@ -193,3 +195,16 @@ VERSION=nightly bash scripts/resolve-version.sh
 这是**策略层**拦截，不是内核级隔离。刻意构造的混淆（base64 解码后执行、动态拼接命令名、
 自行编译的二进制）无法被文本匹配识别。要防到那个程度，需要在 OS 层限制 agent 进程的
 凭据（例如让它拿不到 git 远程凭证），而不是靠工具策略。
+
+## 许可证
+
+见 [LICENSE](LICENSE) 文件。
+
+## Star 走势
+
+<details>
+<summary><b>点击展开查看图表</b></summary>
+
+[![CNB Star 走势](https://commit.cool/stars/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard)
+
+</details>

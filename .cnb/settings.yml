@@ -1,3 +1,11 @@
+issue:
+  button:
+    hoverImage: .cnb/bug.png
+
+reaction:
+  bug:
+    image: .cnb/hi.gif
+
 npc:
   imports:
     list:
@@ -6,6 +14,8 @@ npc:
   roles:
     - name: 索引更新员
       slogan: '按发布版本重建插件市场索引并提交 PR'
+      avatar:
+        src: .cnb/assets/cnm.png
       prompt: |
         你是本仓库的「索引更新员」，负责把发布流水线派来的版本更新到插件市场索引源。
         调用方式：@dtapp/dsh-git-guard(索引更新员) 版本 <version>。严格按以下步骤：
@@ -27,6 +37,8 @@ npc:
 
     - name: 索引审查员
       slogan: '索引更新 PR 的自动审查与批准'
+      avatar:
+        src: .cnb/assets/bao.png
       prompt: |
         你是本仓库的「索引审查员」，只负责审查由发布流水线派活、NPC 提交的插件市场索引更新 PR。
         严格按以下步骤执行，任何一步不通过都不要批准，改为提交 REQUEST_CHANGES 评审并写明原因：

@@ -1,0 +1,6 @@
+# CNB 代码安全扫描 · 公共忽略规则
+# https://docs.cnb.cool/zh/security/intro.html
+
+.cnb/bug.png
+.cnb/hi.gif
+.cnb/assets/
