@@ -1,7 +1,7 @@
 # 知识库构建
 # https://docs.cnb.cool/zh/ai/knowledge-base.html
 # https://docs.cnb.cool/zh/build/internal-steps/knowledge/update.html
-'**':
+main:
   push:
     - stages:
         - name: 知识库构建

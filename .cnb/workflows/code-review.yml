@@ -1,7 +1,7 @@
 # AI 代码评审
 # https://docs.cnb.cool/zh/plugin/public/cnbcool/code-review.html
 # https://cnb.cool/cnb/plugins/cnbcool/code-review
-'**':
+main:
   pull_request:
     - name: AI 代码评审与通知
       # 密钥通过 imports 从私有仓库导入

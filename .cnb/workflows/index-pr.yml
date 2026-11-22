@@ -1,0 +1,42 @@
+# 插件市场索引更新 PR 的自动审查与自动合并
+#
+# 由 .cnb.yml 的 include 引入。索引更新 PR 由发布流水线里的「索引更新员」提交，
+# 这里负责：确定性校验 + NPC 审查批准 + 评审通过后自动 squash 合并。
+
+main:
+  # 索引更新 PR 的自动审查：NPC 提完 PR 后，这里直接跑「索引审查员」核对
+  # market/index.json 并提交 approve 评审，不需要人工点批准。用 npc:go 而非
+  # @NPC 评论，是因为「替我上班」工作模式只能由页面勾选，CLI 无法模拟。
+  pull_request:
+    - name: 索引更新 PR 自动审查
+      # 只处理改了 market/index.json 的 PR（PR 事件会统计变更文件），其它 PR 跳过。
+      ifModify:
+        - market/index.json
+      stages:
+        - name: 确定性校验索引与插件逻辑
+          image: node:26
+          script: |
+            node test.mjs
+            node .cnb/scripts/verify-index.mjs
+        - name: 审查并批准索引 PR
+          docker:
+            image: cnbcool/default-npc:latest
+          type: npc:go
+          options:
+            role: 索引审查员
+            systemPrompt: 你是 dsh-git-guard 仓库的自动化审查助手，只审查 market/index.json 的更新，严格遵守角色指令。
+            userPrompt: 请按「索引审查员」的职责审查当前 PR。PR 编号在环境变量 CNB_PULL_REQUEST_IID 中，仓库在 CNB_REPO_SLUG 中，校验通过后按角色指令调用 approve 接口批准，不通过则提交 REQUEST_CHANGES 评审。
+            maxTurns: 60
+
+  # 保护分支 main 上：评审通过 + 状态检查通过 + 无冲突后，自动 squash 合并并删除源分支。
+  # 前置条件：仓库设置 → 分支保护 → main 勾选「需要评审人批准」。
+  pull_request.mergeable:
+    - name: 索引更新 PR 自动合并
+      ifModify:
+        - market/index.json
+      stages:
+        - name: squash 合并
+          type: git:auto-merge
+          options:
+            mergeType: squash
+            removeSourceBranch: true
