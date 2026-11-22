@@ -80,9 +80,12 @@ stages: &publish_stages
     script: bash scripts/create-release.sh
 
   # 派活给 NPC 重建插件市场索引源：固定 Issue + @dtapp/dsh-git-guard(索引更新员)，
-  # 失败只告警，不影响已成功的发布。
+  # 失败只告警，不影响已成功的发布。NPC_ENABLED=false 时整段不执行（不触发 NPC）。
   - name: 请求 NPC 更新索引源
     image: cnbcool/cnb-cli
+    # NPC_ENABLED=false 时整段不执行（不触发 NPC）；变量由 pipeline 层 imports 提供。
+    if: |
+      [ "$NPC_ENABLED" = "true" ]
     allowFailure: true
     script: |
       sh .cnb/scripts/request-index-update.sh "$VERSION"
@@ -94,9 +97,12 @@ main:
     - name: 定时发布 nightly
       env:
         VERSION: nightly
+      # NPC 开关：npc.yml 提供 NPC_ENABLED=true；改成 false 可全局关闭 NPC 派活。
+      imports: https://cnb.cool/dtapp/envs/-/blob/main/npc.yml
       stages: *publish_stages
 
   # 手动执行：version 与 commit 由 .cnb/web_trigger.yml 的 inputs 表单注入。
   web_trigger_nightly:
     - name: 手动发布
+      imports: https://cnb.cool/dtapp/envs/-/blob/main/npc.yml
       stages: *publish_stages

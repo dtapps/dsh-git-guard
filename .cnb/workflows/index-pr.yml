@@ -9,6 +9,8 @@ main:
   # @NPC 评论，是因为「替我上班」工作模式只能由页面勾选，CLI 无法模拟。
   pull_request:
     - name: 索引更新 PR 自动审查
+      # NPC 开关：npc.yml 提供 NPC_ENABLED=true；改成 false 可关闭 NPC 审查。
+      imports: https://cnb.cool/dtapp/envs/-/blob/main/npc.yml
       # 只处理改了 market/index.json 的 PR（PR 事件会统计变更文件），其它 PR 跳过。
       ifModify:
         - market/index.json
@@ -19,6 +21,9 @@ main:
             node test.mjs
             node .cnb/scripts/verify-index.mjs
         - name: 审查并批准索引 PR
+          # NPC_ENABLED=false 时整段不执行（不发 NPC 任务）；变量由 pipeline 层 imports 提供。
+          if: |
+            [ "$NPC_ENABLED" = "true" ]
           docker:
             image: cnbcool/default-npc:latest
           type: npc:go
