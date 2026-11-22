@@ -78,6 +78,13 @@ stages: &stages
     image: node:26
     script: bash scripts/create-release.sh
 
+  # 派活给 NPC 重建插件市场索引源：固定 Issue + @CodeBuddy，失败只告警。
+  - name: 请求 NPC 更新索引源
+    image: cnbcool/cnb-cli
+    allowFailure: true
+    script: |
+      sh .cnb/scripts/request-index-update.sh "$VERSION"
+
 main:
   # 每天定时构建 nightly。平台时区 Asia/Shanghai，08:00 = UTC 00:00。
   # 定时固定发 nightly（env VERSION=nightly）；手动则由表单的 version 覆盖。
