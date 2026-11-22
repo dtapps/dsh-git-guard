@@ -1,0 +1,24 @@
+# 手动发布按钮：在「代码 - 分支详情页」点击，填 version 与 commit 触发。
+# 两个入参即用户要求的 version / commit：
+#   * version：semver（1.2.3 / 1.2.3-rc.1 ...）或字面量 nightly（自动展开）。
+#   * commit：要发布的提交 SHA，可留空（留空用当前分支 HEAD）。
+# 注：此文件不支持 include / imports。
+branch:
+  - buttons:
+      - name: 发布 npm
+        description: 按 version 渠道发布到 npm 制品库并创建 Release
+        event: web_trigger_nightly
+        inputs:
+          version:
+            name: 版本号
+            description: semver（如 1.2.3 或 1.2.3-rc.1），或填 nightly 自动展开为 <最近正式版+1补丁>-nightly.<UTC日期>
+            type: input
+            required: true
+            default: nightly
+            placeholder: 1.2.3 / 1.2.3-rc.1 / nightly
+          commit:
+            name: 提交 SHA
+            description: 要发布的提交，留空则使用当前分支最新提交
+            type: input
+            required: false
+            placeholder: 留空 = 分支 HEAD

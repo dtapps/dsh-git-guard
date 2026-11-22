@@ -5,7 +5,7 @@
 # profile — including tool calls made through `run_code` and terminal sessions.
 - insert:
     - id: dsh-git-guard
-      name: '@local/dsh-git-guard'
+      name: '@dtapp/dsh-git-guard'
       config:
         enabled: true
         promptNotice: true

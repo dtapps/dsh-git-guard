@@ -1,9 +1,8 @@
 {
-  "name": "@local/dsh-git-guard",
+  "name": "@dtapp/dsh-git-guard",
   "version": "1.0.0",
-  "private": true,
-  "type": "module",
   "description": "Blocks agent-initiated git commit, push, and other git write operations at the tool-policy layer.",
+  "type": "module",
   "exports": {
     ".": "./index.js",
     "./locale/*.json": "./locale/*.json",
@@ -16,6 +15,26 @@
     "icon.svg",
     "README.md"
   ],
+  "scripts": {
+    "test": "node test.mjs",
+    "prepublishOnly": "node test.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://cnb.cool/dtapp/dsh-git-guard"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "git",
+    "guard",
+    "tool-policy"
+  ],
+  "license": "MIT",
+  "private": false,
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"

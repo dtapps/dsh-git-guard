@@ -53,6 +53,56 @@
 node test.mjs   # 44 条应拦截 / 26 条应放行
 ```
 
+## 发布（CNB 云原生构建）
+
+`.cnb.yml` 把包发布到 CNB npm 制品库，并创建对应 Release。制品库地址不写死，由内置变量
+`$CNB_REPO_SLUG` 推导为 `https://npm.cnb.cool/$CNB_REPO_SLUG/-/packages/`；包名读
+`package.json`。
+
+**入参**：`version`（版本号或 `nightly`）与 `commit`（要发布的提交）。
+
+| version 输入 | 渠道 | npm dist-tag | Release |
+| --- | --- | --- | --- |
+| `1.2.3` | 正式版 | `latest` | 不勾选 prerelease，标记为 latest |
+| `1.2.3-rc.1` | rc | `rc` | prerelease |
+| `1.2.3-beta.1` | beta | `beta` | prerelease |
+| `1.2.3-alpha.1` | alpha | `alpha` | prerelease |
+| `1.2.3-nightly.20260101` | nightly | `nightly` | prerelease |
+| `nightly` | nightly | `nightly` | 展开成 `<最近正式版 + 1 补丁>-nightly.<UTC 日期>` |
+
+`nightly` 不是版本号本身：手动执行填 `nightly`、定时任务固定用 `nightly`，都会自动展开。
+例如最近正式版是 `v0.2.7`，当天 UTC 日期 2026-11-14，则展开为 `0.2.8-nightly.20261114`，
+每天一个 tag；Release 只保留最近 3 个 nightly，更早的自动删除。
+
+**只有两种触发方式，共用同一条流水线**（`.cnb.yml` 里 stages 只写一次，两个触发引用同一份
+`&stages` 锚点）：
+
+- **定时**（`crontab`）：每天 UTC 00:00（平台时区 Asia/Shanghai 的 08:00）自动跑，固定
+  `VERSION=nightly`。
+- **手动**（`web_trigger_nightly`）：在分支详情页点「发布 npm」按钮，表单填两个入参
+  `version`（必填，semver 或 `nightly`，默认 `nightly`）与 `commit`（选填，留空用分支 HEAD）。
+  按钮定义在 `.cnb/web_trigger.yml`。
+
+两种方式的步骤完全一致：切换到指定提交（定时/留空则用 HEAD）→ 解析版本 →
+自检 → 创建 nightly 标签 → 发布到制品库 → 创建 Release。本项目零依赖（`test.mjs`
+是纯 Node），无需装依赖，直接用 `node:26` 镜像自带的 node/npm。发布用
+`tencentcom/npm` 插件，token 取内置 `$CNB_TOKEN`，无需自管 `.npmrc`。
+
+**脚本职责**：
+
+| 脚本 | 职责 |
+| --- | --- |
+| `scripts/resolve-version.sh` | 解析 `version`，判定渠道，nightly 自动展开 |
+| `scripts/nightly-tag.sh` | 创建并推送 nightly tag |
+| `scripts/create-release.sh` | 创建/替换 Release；nightly 渠道额外裁剪到最近 3 个 |
+| `scripts/prune-nightly.mjs` | 调 CNB OpenAPI 删除多余的 nightly Release |
+
+本地验证版本解析逻辑（不真正发布）：
+
+```bash
+VERSION=nightly bash scripts/resolve-version.sh
+```
+
 ## 已知边界
 
 这是**策略层**拦截，不是内核级隔离。刻意构造的混淆（base64 解码后执行、动态拼接命令名、
