@@ -21,7 +21,7 @@ https://cnb.cool/dtapp/dsh-git-guard/-/git/raw/main/market/index.json
 索引地址必须直接返回 2xx、不能重定向，加载限时 15 秒；CNB raw 地址已验证满足。
 
 索引随发版自动更新：发布流水线的最后一步会在本仓库维护一条固定 Issue
-`[NPC] 更新插件市场索引源`，在评论里 `@CodeBuddy` 派活，由 NPC 运行 `node market/build-index.mjs`
+`[NPC] 更新插件市场索引源`，在评论里 `@dtapp/dsh-git-guard(索引更新员)` 派活，由该角色运行 `node market/build-index.mjs`
 并以 PR 形式提交 `market/index.json`（不直接改 `main`）。该步骤失败只告警，不影响发布结果。
 NPC 配置见 `.cnb/settings.yml`，派活脚本见 `.cnb/scripts/request-index-update.sh`。
 
@@ -33,7 +33,7 @@ PR 提交后全自动闭环，无需人工介入：
 
 **一次性设置**：仓库 `设置 → 分支保护` 把 `main` 设为保护分支并勾选「需要评审人批准」——
 `pull_request.mergeable` 只在保护分支 + 评审通过时触发，不设置则自动合并不会发生。
-另外，派活评论的 `@CodeBuddy` 需在页面评论框勾选一次「替我上班」以启用工作模式（CLI 无法模拟该开关）。
+另外，派活评论的 `@dtapp/dsh-git-guard(索引更新员)` 需在页面评论框勾选一次「替我上班」以启用工作模式（CLI 无法模拟该开关）。两个角色的 prompt 都定义在 `.cnb/settings.yml` 的 `roles` 里。
 
 手动更新也可以直接运行 `node market/build-index.mjs`，脚本从 registry 读取真实发布时间并重写索引；
 也可指定其它源，例如 `node market/build-index.mjs --registry=https://registry.npmjs.org/`。
@@ -176,9 +176,9 @@ node test.mjs   # 44 条应拦截 / 26 条应放行
 | `scripts/create-release.sh` | 创建/替换 Release；nightly 渠道额外裁剪到最近 3 个 |
 | `scripts/prune-nightly.mjs` | 调 CNB OpenAPI 删除多余的 nightly Release |
 | `market/build-index.mjs` | 重建 `market/index.json`（自建索引源），由 NPC 调用或手动运行 |
-| `.cnb/scripts/request-index-update.sh` | 发布后维护固定 Issue 并 `@CodeBuddy` 派活更新索引 |
+| `.cnb/scripts/request-index-update.sh` | 发布后维护固定 Issue 并 `@dtapp/dsh-git-guard(索引更新员)` 派活更新索引 |
 
-发布完成后，流水线最后一步会自动在固定 Issue 里 `@CodeBuddy`，让它运行 `node market/build-index.mjs`
+发布完成后，流水线最后一步会自动在固定 Issue 里 `@dtapp/dsh-git-guard(索引更新员)`，让它运行 `node market/build-index.mjs`
 并以 PR 提交索引更新，发现页才能看到新版本。`market/build-index.mjs` 零依赖，只读 registry 和仓库内文件，
 自身不会执行任何 git 操作。
 

@@ -21,7 +21,7 @@ VERSION="${1:-${VERSION:-}}"
 
 TITLE='[NPC] 更新插件市场索引源'
 LABEL='索引维护'
-NPC_HANDLE='@CodeBuddy'
+NPC_HANDLE='@dtapp/dsh-git-guard(索引更新员)'
 
 tmp="$(mktemp -d 2>/dev/null || true)"
 if [ -z "${tmp}" ]; then
@@ -111,13 +111,7 @@ fi
 
 COMMENT_FILE="${tmp}/comment.md"
 {
-  printf '%s 本仓库刚发布版本 `%s`，请更新插件市场索引源。\n\n' "${NPC_HANDLE}" "${VERSION}"
-  printf '请按以下步骤操作：\n\n'
-  printf '1. 运行 `node market/build-index.mjs`：脚本从 CNB 制品库读取真实版本与发布时间，重写 `market/index.json`（零依赖，无需安装）。\n'
-  printf '2. 检查 `git diff -- market/index.json`，确认新增了版本 `%s`。\n' "${VERSION}"
-  printf '3. 把改动提交到一个新分支并创建 PR（标题 `chore: 更新插件市场索引源到 %s`），不要直接改 `main`。\n' "${VERSION}"
-  printf '4. 在 PR 合并前不要在本 Issue 回复完成；合并后回复一句索引已更新即可。\n\n'
-  printf '注意：如果 `market/index.json` 没有变化（例如版本已由上次更新覆盖），直接在本 Issue 回复「索引已是最新，无需更新」，不要创建空 PR。\n'
+  printf '%s 版本 %s\n' "${NPC_HANDLE}" "${VERSION}"
   printf '\n<!-- index-update-state:%s -->\n' "${VERSION}"
 } >"${COMMENT_FILE}"
 
@@ -126,7 +120,7 @@ if cnb issues post-issue-comment \
   --number "${NUMBER}" \
   --body-file "${COMMENT_FILE}" \
   >"${tmp}/post.txt" 2>&1; then
-  info "✓ 已在 Issue #${NUMBER} @${NPC_HANDLE} 派活"
+  info "✓ 已在 Issue #${NUMBER} ${NPC_HANDLE} 派活"
 else
   warn "发布评论失败：$(head -n 5 "${tmp}/post.txt" 2>/dev/null | tr '\n' ' ' || true)"
 fi
