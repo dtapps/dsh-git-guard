@@ -6,7 +6,27 @@
 
 代码仓库：https://cnb.cool/dtapp/dsh-git-guard ；npm 包发布在 CNB 制品库
 `https://npm.cnb.cool/dtapp/dsh/-/packages/`（包名 `@dtapp/dsh-git-guard`，公开可读，
-无需登录或 token）。`dsh plugin` 会把后续参数原样转发给 profile 目录里的 pnpm，因此一条命令即可安装：
+无需登录或 token）。
+
+### 方式一：插件市场索引源（可在发现页搜索）
+
+仓库自带一份 DSH **format 1** 索引 `market/index.json`，通过 CNB raw 地址直接对外提供：
+
+```text
+https://cnb.cool/dtapp/dsh-git-guard/-/git/raw/main/market/index.json
+```
+
+在 DSH 中打开 `插件 → 发现 → 索引源`，添加上面的地址（索引源属于 profile，每个 profile 需单独添加一次）。
+之后即可在发现页搜索 `@dtapp/dsh-git-guard`，点击安装时索引里的 `source.registry` 会自动指向 CNB 制品库。
+索引地址必须直接返回 2xx、不能重定向，加载限时 15 秒；CNB raw 地址已验证满足。
+
+索引随发版更新：发布新版本后运行 `node market/build-index.mjs`，脚本会从 registry 读取真实发布时间并重写
+`market/index.json`。也可指定其它源，例如
+`node market/build-index.mjs --registry=https://registry.npmjs.org/`。
+
+### 方式二：命令行安装
+
+`dsh plugin` 会把后续参数原样转发给 profile 目录里的 pnpm，因此一条命令即可安装：
 
 ```bash
 dsh plugin --profile <profile> add @dtapp/dsh-git-guard \
@@ -26,8 +46,8 @@ dsh plugin --profile <profile> add @dtapp/dsh-git-guard \
 
 **提示「未找到相关插件 / 404」时**：
 
-- 这个包没有发布到 npmjs、npmmirror 或 cordis 官方插件市场，因此在 Desktop 设置里的插件市场
-  搜索不到是正常的，只能通过上面的命令行安装。
+- 这个包没有发布到 npmjs、npmmirror 或 cordis 官方插件市场，因此默认插件市场里搜不到；
+  需先按方式一添加自建索引源，或按方式二用命令行安装。
 - 命令行安装必须带 `--registry`（或配好 scope 映射）。只写包名会从默认源拉取并报
   `ERR_PNPM_FETCH_404`。
 - 若 `~/.npmrc` 或 profile 的 `.npmrc` 里已有指向别处的 `@dtapp:registry`，命令行的 `--registry`
@@ -141,6 +161,10 @@ node test.mjs   # 44 条应拦截 / 26 条应放行
 | `scripts/nightly-tag.sh` | 创建并推送 nightly tag |
 | `scripts/create-release.sh` | 创建/替换 Release；nightly 渠道额外裁剪到最近 3 个 |
 | `scripts/prune-nightly.mjs` | 调 CNB OpenAPI 删除多余的 nightly Release |
+| `market/build-index.mjs` | 发布后重建 `market/index.json`（自建索引源），需手动运行并提交 |
+
+发布完成后运行 `node market/build-index.mjs` 更新索引并提交，发现页才能看到新版本。该脚本零依赖，
+只读 registry 和仓库内文件，不会执行任何 git 操作。
 
 本地验证版本解析逻辑（不真正发布）：
 
