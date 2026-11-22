@@ -19,6 +19,7 @@
 #     （npm 制品库名独立于 git 仓库名，git 仓库已由 dsh-git-guard 改名为 git-guard，
 #       故不能由 $CNB_REPO_SLUG 推导，写死为实际创建的制品库路径）
 #   * 包名        读 package.json（兜底 @${CNB_GROUP_SLUG_LOWERCASE}/${CNB_REPO_NAME_LOWERCASE}）
+#   * 发布令牌    从密钥仓库 dtapp/envs 的 npm.yml 导入为 $DSH_GIT_GUARD_TOKEN（见 publish stage）
 #
 # 公共 stage 用 YAML 锚点复用（同文件内允许；跨文件才不支持锚点）：
 #   * .resolve / .test / .tag-nightly / .publish / .release
@@ -49,9 +50,11 @@ tag-nightly: &tag-nightly
 publish: &publish
   name: 发布到制品库
   image: tencentcom/npm
+  imports:
+    - https://cnb.cool/dtapp/envs/-/blob/main/npm.yml
   settings:
     username: $CNB_TOKEN_USER_NAME
-    token: $CNB_TOKEN
+    token: $DSH_GIT_GUARD_TOKEN
     email: $CNB_COMMITTER_EMAIL
     registry: https://npm.cnb.cool/dtapp/dsh-git-guard/-/packages/
     folder: ./
