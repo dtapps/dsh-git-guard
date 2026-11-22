@@ -55,9 +55,10 @@ node test.mjs   # 44 条应拦截 / 26 条应放行
 
 ## 发布（CNB 云原生构建）
 
-`.cnb.yml` 把包发布到 CNB npm 制品库，并创建对应 Release。制品库地址不写死，由内置变量
-`$CNB_REPO_SLUG` 推导为 `https://npm.cnb.cool/$CNB_REPO_SLUG/-/packages/`；包名读
-`package.json`。
+`.cnb.yml` 把包发布到 CNB npm 制品库，并创建对应 Release。制品库地址固定为实际创建的
+`https://npm.cnb.cool/dtapp/dsh-git-guard/-/packages/`——npm 制品库名独立于 git 仓库名
+（git 仓库已由 `dsh-git-guard` 改名为 `git-guard`），不能用 `$CNB_REPO_SLUG` 推导；包名读
+`package.json`。鉴权用云原生构建内置的 `$CNB_TOKEN` / `$CNB_TOKEN_USER_NAME`，无需自己创建令牌。
 
 **入参**：`version`（版本号或 `nightly`）与 `commit`（要发布的提交）。
 
