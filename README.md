@@ -25,6 +25,16 @@ https://cnb.cool/dtapp/dsh-git-guard/-/git/raw/main/market/index.json
 并以 PR 形式提交 `market/index.json`（不直接改 `main`）。该步骤失败只告警，不影响发布结果。
 NPC 配置见 `.cnb/settings.yml`，派活脚本见 `.cnb/scripts/request-index-update.sh`。
 
+PR 提交后全自动闭环，无需人工介入：
+
+1. `pull_request` 流水线（`ifModify: market/index.json`）启动「索引审查员」NPC，校验索引结构、
+   自检结果与 registry 一致性，通过后调用 CNB API 提交 approve 评审；不通过则提交 REQUEST_CHANGES。
+2. `pull_request.mergeable` 流水线在评审通过、无冲突后自动 squash 合并并删除源分支。
+
+**一次性设置**：仓库 `设置 → 分支保护` 把 `main` 设为保护分支并勾选「需要评审人批准」——
+`pull_request.mergeable` 只在保护分支 + 评审通过时触发，不设置则自动合并不会发生。
+另外，派活评论的 `@CodeBuddy` 需在页面评论框勾选一次「替我上班」以启用工作模式（CLI 无法模拟该开关）。
+
 手动更新也可以直接运行 `node market/build-index.mjs`，脚本从 registry 读取真实发布时间并重写索引；
 也可指定其它源，例如 `node market/build-index.mjs --registry=https://registry.npmjs.org/`。
 
