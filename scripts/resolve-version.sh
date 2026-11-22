@@ -18,11 +18,13 @@
 #   DIST_TAG      npm dist-tag to publish under (latest for stable, else the channel)
 #   PRERELEASE    true for any prerelease channel, false for stable
 #
-# Everything repo-specific comes from package.json and CNB built-in env vars (see
-# https://docs.cnb.cool/zh/build/build-in-env.md) — nothing is hardcoded:
+# Package name comes from package.json and CNB built-in env vars (see
+# https://docs.cnb.cool/zh/build/build-in-env.md):
 #   * package name / scope : read from package.json (authoritative), falling back to
 #                            CNB_REPO_NAME_LOWERCASE / CNB_GROUP_SLUG_LOWERCASE
-#   * artifact repo path   : mirrors the git path CNB_REPO_SLUG
+#   * artifact repo path   : shared `dtapp/dsh` registry (NOT the git repo path —
+#                            code repo is dsh-git-guard, artifact repo is dsh),
+#                            hardcoded here and in .cnb.yml `publish.registry`
 # The registry is only needed to look up the latest stable for `nightly` expansion;
 # publishing itself is done by the tencentcom/npm plugin, not here.
 set -euo pipefail
@@ -36,8 +38,8 @@ PKG_NAME="${PKG_NAME:-$(node -p "require('./package.json').name" 2>/dev/null || 
 SCOPE="${PKG_NAME%%/*}"
 SCOPE="${SCOPE#/}"
 
-# Artifact repo path mirrors the git repo path (group/repo).
-NPM_REGISTRY="${NPM_REGISTRY:-https://npm.cnb.cool/${CNB_REPO_SLUG:?CNB_REPO_SLUG is required}/-/packages/}"
+# Shared artifact repo `dsh`; code repo `dsh-git-guard` no longer mirrors it.
+NPM_REGISTRY="${NPM_REGISTRY:-https://npm.cnb.cool/dtapp/dsh/-/packages/}"
 
 # VERSION precedence: explicit VERSION (manual form input, or the crontab's fixed
 # `nightly`), else default to nightly.

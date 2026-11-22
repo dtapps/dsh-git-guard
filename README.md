@@ -2,6 +2,49 @@
 
 阻止 agent 自行执行 `git commit`、`git push` 等写操作，装到 profile 后对整个 Harness 生效。
 
+## 安装到 DeepSeekHarness
+
+代码仓库：https://cnb.cool/dtapp/dsh-git-guard ；npm 包发布在 CNB 制品库
+`https://npm.cnb.cool/dtapp/dsh/-/packages/`（包名 `@dtapp/dsh-git-guard`，公开可读，
+无需登录或 token）。`dsh plugin` 会把后续参数原样转发给 profile 目录里的 pnpm，因此一条命令即可安装：
+
+```bash
+dsh plugin --profile <profile> add @dtapp/dsh-git-guard \
+  --registry=https://npm.cnb.cool/dtapp/dsh/-/packages/
+```
+
+`<profile>` 填要保护的 profile 名（如 `web`、`desktop`；首次使用会自动初始化）。从源码 checkout
+运行 DSH 时，把 `dsh` 换成 `pnpm dsh`。
+
+若不想每次带 `--registry`，可在 `$DSH_HOME/profiles/<profile>/.npmrc` 中固定 scope 映射：
+
+```ini
+@dtapp:registry=https://npm.cnb.cool/dtapp/dsh/-/packages/
+```
+
+之后直接 `dsh plugin --profile <profile> add @dtapp/dsh-git-guard`。
+
+**提示「未找到相关插件 / 404」时**：
+
+- 这个包没有发布到 npmjs、npmmirror 或 cordis 官方插件市场，因此在 Desktop 设置里的插件市场
+  搜索不到是正常的，只能通过上面的命令行安装。
+- 命令行安装必须带 `--registry`（或配好 scope 映射）。只写包名会从默认源拉取并报
+  `ERR_PNPM_FETCH_404`。
+- 若 `~/.npmrc` 或 profile 的 `.npmrc` 里已有指向别处的 `@dtapp:registry`，命令行的 `--registry`
+  不会覆盖 scope 级配置，需要先删掉/改对那一行。可用 `npm config get @dtapp:registry` 检查。
+
+安装后验证（应看到 `# == @dtapp/dsh-git-guard` 和 `- id: dsh-git-guard`）：
+
+```bash
+dsh --profile <profile> --dump-config
+```
+
+重新启动该 profile，guard 即对整个 Harness 生效。卸载用：
+
+```bash
+dsh plugin --profile <profile> remove @dtapp/dsh-git-guard
+```
+
 ## 机制
 
 插件在自己的 `apply()` 里注册一条 `ctx.tools.guard()` 拒绝规则。guard 位于工具执行管线
@@ -56,10 +99,10 @@ node test.mjs   # 44 条应拦截 / 26 条应放行
 ## 发布（CNB 云原生构建）
 
 `.cnb.yml` 把包发布到 CNB npm 制品库，并创建对应 Release。制品库地址固定为实际创建的
-`https://npm.cnb.cool/dtapp/dsh-git-guard/-/packages/`——npm 制品库名独立于 git 仓库名
-（git 仓库已由 `dsh-git-guard` 改名为 `git-guard`），不能用 `$CNB_REPO_SLUG` 推导；包名读
-`package.json`。发布令牌用云原生构建内置 `$CNB_TOKEN`；用户名 / 邮箱用内置
-`$CNB_TOKEN_USER_NAME` / `$CNB_COMMITTER_EMAIL`。
+`https://npm.cnb.cool/dtapp/dsh/-/packages/`——npm 制品库名 `dsh` 独立于 git 仓库名 `dsh-git-guard`
+（代码仓库叫 `dsh-git-guard`，制品库是通用的 `dsh`，以后其他插件包也发到这里），不能用
+`$CNB_REPO_SLUG` 推导；包名读 `package.json`。发布令牌用云原生构建内置 `$CNB_TOKEN`；
+用户名 / 邮箱用内置 `$CNB_TOKEN_USER_NAME` / `$CNB_COMMITTER_EMAIL`。
 
 **入参**：`version`（版本号或 `nightly`）与 `commit`（要发布的提交）。
 
