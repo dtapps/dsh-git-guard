@@ -1,10 +1,11 @@
 include:
-  - .cnb/workflows/cnb-sechook.yml
-  - .cnb/workflows/code-review.yml
-  - .cnb/workflows/code-security-config.yml
-  - .cnb/workflows/codewiki.yml
-  - .cnb/workflows/knowledge-base.yml
+  - path: ".cnb/pai.yml"
   - .cnb/workflows/index-pr.yml
   - .cnb/workflows/publish.yml
   - .cnb/workflows/push.yml
-  - .cnb/workflows/sca.yml
+  - https://cnb.cool/dtapp/ci-templates/-/blob/main/cnb-sechook.yml
+  - https://cnb.cool/dtapp/ci-templates/-/blob/main/code-review.yml
+  - https://cnb.cool/dtapp/ci-templates/-/blob/main/code-security-config.yml
+  - https://cnb.cool/dtapp/ci-templates/-/blob/main/codewiki.yml
+  - https://cnb.cool/dtapp/ci-templates/-/blob/main/knowledge-base.yml
+  - https://cnb.cool/dtapp/ci-templates/-/blob/main/sca.yml

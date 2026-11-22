@@ -22,3 +22,12 @@ branch:
             type: input
             required: false
             placeholder: 留空 = 分支 HEAD
+      - name: 生成 Code Wiki
+        description: 重新分析仓库并生成 Code Wiki 文档
+        event: web_trigger_codewiki # 触发的 CI 事件名
+        permissions:
+          roles:
+            - owner
+            - master
+            - developer
+
