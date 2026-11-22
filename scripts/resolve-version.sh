@@ -2,8 +2,11 @@
 # Resolve the version to publish from the `version` input.
 #
 # Inputs (environment):
-#   VERSION   raw version input (from the manual form, the crontab, or the tag name).
-#             Defaults to `nightly` when unset/empty. One of:
+#   VERSION   raw version input (crontab job env, or an explicitly uppercase input).
+#   version   raw version input from the web_trigger form: CNB injects input keys
+#             verbatim, so `.cnb/web_trigger.yml`'s lowercase `version` arrives as
+#             `$version`, NOT `$VERSION`. `VERSION` wins when both are set.
+#             Defaults to `nightly` when both are unset/empty. One of:
 #             1.2.3                    stable
 #             1.2.3-rc.1               prerelease, channel rc
 #             1.2.3-beta.1             prerelease, channel beta
@@ -41,9 +44,9 @@ SCOPE="${SCOPE#/}"
 # Shared artifact repo `dsh`; code repo `dsh-git-guard` no longer mirrors it.
 NPM_REGISTRY="${NPM_REGISTRY:-https://npm.cnb.cool/dtapp/dsh/-/packages/}"
 
-# VERSION precedence: explicit VERSION (manual form input, or the crontab's fixed
-# `nightly`), else default to nightly.
-raw="${VERSION:-nightly}"
+# VERSION precedence: uppercase VERSION (crontab job env / explicit override), then
+# lowercase version (web_trigger form input key), else default to nightly.
+raw="${VERSION:-${version:-nightly}}"
 # Trim whitespace and a single leading `v` (v1.2.3 -> 1.2.3).
 raw="${raw#"${raw%%[![:space:]]*}"}"
 raw="${raw%"${raw##*[![:space:]]}"}"
@@ -63,7 +66,9 @@ channel_of() {
 }
 
 # latest_stable <registry> <encoded package name>
-# Prints the highest stable (non-prerelease) version, preferring the `latest` dist-tag.
+# Prints the highest stable (non-prerelease) version. The `latest` dist-tag is only
+# trusted when it points to a stable version: this registry currently keeps nightly
+# builds in `latest`, and bumping those would drift the nightly baseline upward.
 latest_stable() {
 	local registry="$1" pkg="$2" json latest
 	json="$(curl -fsSL --max-time 30 "${registry%/}/${pkg}" 2>/dev/null || true)"
@@ -71,8 +76,9 @@ latest_stable() {
 		latest="$(printf '%s' "$json" | node -e '
 			let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
 				try{const j=JSON.parse(s);const t=j["dist-tags"]||{};
-					if(t.latest)return console.log(t.latest);
-					const vs=Object.keys(j.versions||{}).filter(v=>!/[-]/.test(v));
+					const stable=v=>typeof v==="string"&&!/[-]/.test(v);
+					if(stable(t.latest))return console.log(t.latest);
+					const vs=Object.keys(j.versions||{}).filter(stable);
 					if(vs.length){vs.sort((a,b)=>{const p=x=>x.split(".").map(Number);const A=p(a),B=p(b);for(let i=0;i<3;i++)if(A[i]!==B[i])return B[i]-A[i];return 0;});return console.log(vs[0]);}
 				}catch{}
 			});'
