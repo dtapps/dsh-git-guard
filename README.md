@@ -55,9 +55,11 @@ node test.mjs   # 44 条应拦截 / 26 条应放行
 
 ## 发布（CNB 云原生构建）
 
-`.cnb.yml` 把包发布到 CNB npm 制品库，并创建对应 Release。制品库地址不写死，由内置变量
-`$CNB_REPO_SLUG` 推导为 `https://npm.cnb.cool/$CNB_REPO_SLUG/-/packages/`；包名读
-`package.json`。
+`.cnb.yml` 把包发布到 CNB npm 制品库，并创建对应 Release。制品库地址固定为实际创建的
+`https://npm.cnb.cool/dtapp/dsh-git-guard/-/packages/`——npm 制品库名独立于 git 仓库名
+（git 仓库已由 `dsh-git-guard` 改名为 `git-guard`），不能用 `$CNB_REPO_SLUG` 推导；包名读
+`package.json`。发布令牌从密钥仓库 `dtapp/envs` 的 `npm.yml` 通过 `imports` 导入为
+`$DSH_GIT_GUARD_TOKEN`；用户名 / 邮箱仍用内置 `$CNB_TOKEN_USER_NAME` / `$CNB_COMMITTER_EMAIL`。
 
 **入参**：`version`（版本号或 `nightly`）与 `commit`（要发布的提交）。
 
@@ -86,7 +88,7 @@ node test.mjs   # 44 条应拦截 / 26 条应放行
 两种方式的步骤完全一致：切换到指定提交（定时/留空则用 HEAD）→ 解析版本 →
 自检 → 创建 nightly 标签 → 发布到制品库 → 创建 Release。本项目零依赖（`test.mjs`
 是纯 Node），无需装依赖，直接用 `node:26` 镜像自带的 node/npm。发布用
-`tencentcom/npm` 插件，token 取内置 `$CNB_TOKEN`，无需自管 `.npmrc`。
+`tencentcom/npm` 插件，token 取密钥仓库导入的 `$DSH_GIT_GUARD_TOKEN`，无需自管 `.npmrc`。
 
 **脚本职责**：
 
