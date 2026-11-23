@@ -29,6 +29,8 @@ PR 提交后全自动闭环，无需人工介入：
 
 手动更新也可以直接运行 `node market/build-index.mjs`，脚本从 registry 读取真实发布时间并重写索引； 也可指定其它源，例如 `node market/build-index.mjs --registry=https://registry.npmjs.org/`。
 
+安装后「检查更新」也不会因为默认源里没有这个包而报 `ERR_PNPM_FETCH_404`：包里自带的 `cordis.patch.yml` 把 CNB 制品库声明为插件管理器的备选源（`fallbackRegistries`）， DSH 重启后查不到版本会自动回落到 CNB。该配置随插件生效、卸载即撤销，无需改 `~/.npmrc` 或 profile 配置； 若 profile 的默认源是私有源（非 npmjs / npmmirror），DSH 按设计不会回落到 CNB，此时仍需按方式二配 scope 映射。
+
 ### 方式二：命令行安装
 
 `dsh plugin` 会把后续参数原样转发给 profile 目录里的 pnpm，因此一条命令即可安装：
@@ -52,6 +54,7 @@ dsh plugin --profile <profile> add @dtapp/dsh-git-guard \
 
 - 这个包没有发布到 npmjs、npmmirror 或 cordis 官方插件市场，因此默认插件市场里搜不到； 需先按方式一添加自建索引源，或按方式二用命令行安装。
 - 命令行安装必须带 `--registry`（或配好 scope 映射）。只写包名会从默认源拉取并报 `ERR_PNPM_FETCH_404`。
+- 插件页「检查更新」同样会查 profile 的安装源。含本仓库 `cordis.patch.yml` 备选源配置的版本装上后会自动回落到 CNB； 更早的版本（如 1.0.2）没有该配置，需要先升级。
 - 若 `~/.npmrc` 或 profile 的 `.npmrc` 里已有指向别处的 `@dtapp:registry`，命令行的 `--registry` 不会覆盖 scope 级配置，需要先删掉/改对那一行。可用 `npm config get @dtapp:registry` 检查。
 
 安装后验证（应看到 `# == @dtapp/dsh-git-guard` 和 `- id: dsh-git-guard`）：
