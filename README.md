@@ -6,7 +6,21 @@
 
 ## 安装到 DeepSeekHarness
 
-代码仓库：https://cnb.cool/dtapp/dsh-git-guard ；npm 包发布在 CNB 制品库 `https://npm.cnb.cool/dtapp/dsh/-/packages/`（包名 `@dtapp/dsh-git-guard`，公开可读， 无需登录或 token）。
+代码仓库：https://cnb.cool/dtapp/dsh-git-guard ；npm 包发布在 CNB 制品库 `https://npm.cnb.cool/dtapp/dsh/-/packages/`（包名 `@dtapp/dsh-git-guard`，公开可读，无需登录或 token）。
+
+### 前置：一次配置 scope 源（重要）
+
+`@dtapp/dsh-git-guard` **不在** npmjs / npmmirror。profile 的 pnpm 默认源若是 npmmirror，安装与依赖校验都会去那里找这个包，报 `ERR_PNPM_FETCH_404` / `Lockfile failed supply-chain policy check`。这是 pnpm 校验 lockfile 时按包名回源取证，不是网络故障，也不是需要登录。
+
+最稳的做法是在 profile 的 `.npmrc` 里给 `@dtapp` scope 指定 CNB 地址（只影响本 scope，不动其他依赖）：
+
+```ini
+@dtapp:registry=https://npm.cnb.cool/dtapp/dsh/-/packages/
+```
+
+文件位置：`$DSH_HOME/profiles/<profile>/.npmrc`（`<profile>` 如 `web`、`desktop`）。不想手写可运行仓库里的辅助脚本，见「辅助脚本」一节。scope 映射对所有安装方式都生效，包括发现页点击安装、命令行安装和 lockfile 供应链校验。手动加过索引源、或用 `--registry` 安装过的 profile 也建议补上这一行。
+
+注意：`--registry=<CNB 地址>` 只作用于那一次安装；`.npmrc` 里的 `registry=` 是全局默认源；只有 `@dtapp:registry=` 会让 pnpm 在校验/更新时也把 `@dtapp` 包指向 CNB。若 `~/.npmrc` 或 profile `.npmrc` 里已有指向别处的 `@dtapp:registry`，先改正或删掉那一行（`npm config get @dtapp:registry` 可检查）。
 
 ### 方式一：插件市场索引源（可在发现页搜索）
 
@@ -16,20 +30,18 @@
 https://cnb.cool/dtapp/dsh-git-guard/-/git/raw/main/market/index.json
 ```
 
-在 DSH 中打开 `插件 → 发现 → 索引源`，添加上面的地址（索引源属于 profile，每个 profile 需单独添加一次）。 之后即可在发现页搜索 `@dtapp/dsh-git-guard`，点击安装时索引里的 `source.registry` 会自动指向 CNB 制品库。 索引地址必须直接返回 2xx、不能重定向，加载限时 15 秒；CNB raw 地址已验证满足。
+在 DSH 中打开 `插件 → 发现 → 索引源`，添加上面的地址（索引源属于 profile，每个 profile 需单独添加一次）。之后即可在发现页搜索 `@dtapp/dsh-git-guard`，点击安装时索引里的 `source.registry` 会指向 CNB 制品库。索引地址必须直接返回 2xx、不能重定向，加载限时 15 秒；CNB raw 地址已验证满足。
 
-索引随发版自动更新：发布流水线的最后一步会在本仓库维护一条固定 Issue `[NPC] 更新插件市场索引源`，在评论里 `@dtapp/dsh-git-guard(索引更新员)` 派活，由该角色运行 `node market/build-index.mjs` 并以 PR 形式提交 `market/index.json`（不直接改 `main`）。该步骤失败只告警，不影响发布结果。 NPC 配置见 `.cnb/settings.yml`，派活脚本见 `.cnb/scripts/request-index-update.sh`。
+索引随发版自动更新：发布流水线的最后一步会在本仓库维护一条固定 Issue `[NPC] 更新插件市场索引源`，在评论里 `@dtapp/dsh-git-guard(索引更新员)` 派活，由该角色运行 `node market/build-index.mjs` 并以 PR 形式提交 `market/index.json`（不直接改 `main`）。该步骤失败只告警，不影响发布结果。NPC 配置见 `.cnb/settings.yml`，派活脚本见 `.cnb/scripts/request-index-update.sh`。
 
 PR 提交后全自动闭环，无需人工介入：
 
-1. `pull_request` 流水线（`ifModify: market/index.json`）启动「索引审查员」NPC，校验索引结构、 自检结果与 registry 一致性，通过后调用 CNB API 提交 approve 评审；不通过则提交 REQUEST_CHANGES。
+1. `pull_request` 流水线（`ifModify: market/index.json`）启动「索引审查员」NPC，校验索引结构、自检结果与 registry 一致性，通过后调用 CNB API 提交 approve 评审；不通过则提交 REQUEST_CHANGES。
 2. `pull_request.mergeable` 流水线在评审通过、无冲突后自动 squash 合并并删除源分支。
 
-**一次性设置**：仓库 `设置 → 分支保护` 把 `main` 设为保护分支并勾选「需要评审人批准」—— `pull_request.mergeable` 只在保护分支 + 评审通过时触发，不设置则自动合并不会发生。 另外，派活评论的 `@dtapp/dsh-git-guard(索引更新员)` 需在页面评论框勾选一次「替我上班」以启用工作模式（CLI 无法模拟该开关）。两个角色的 prompt 都定义在 `.cnb/settings.yml` 的 `roles` 里。
+**一次性设置**：仓库 `设置 → 分支保护` 把 `main` 设为保护分支并勾选「需要评审人批准」—— `pull_request.mergeable` 只在保护分支 + 评审通过时触发，不设置则自动合并不会发生。另外，派活评论的 `@dtapp/dsh-git-guard(索引更新员)` 需在页面评论框勾选一次「替我上班」以启用工作模式（CLI 无法模拟该开关）。两个角色的 prompt 都定义在 `.cnb/settings.yml` 的 `roles` 里。
 
-手动更新也可以直接运行 `node market/build-index.mjs`，脚本从 registry 读取真实发布时间并重写索引； 也可指定其它源，例如 `node market/build-index.mjs --registry=https://registry.npmjs.org/`。
-
-安装后「检查更新」也不会因为默认源里没有这个包而报 `ERR_PNPM_FETCH_404`：包里自带的 `cordis.patch.yml` 把 CNB 制品库声明为插件管理器的备选源（`fallbackRegistries`）， DSH 重启后查不到版本会自动回落到 CNB。该配置随插件生效、卸载即撤销，无需改 `~/.npmrc` 或 profile 配置； 若 profile 的默认源是私有源（非 npmjs / npmmirror），DSH 按设计不会回落到 CNB，此时仍需按方式二配 scope 映射。
+手动更新也可以直接运行 `node market/build-index.mjs`，脚本从 registry 读取真实发布时间并重写索引；也可指定其它源，例如 `node market/build-index.mjs --registry=https://registry.npmjs.org/`。
 
 ### 方式二：命令行安装
 
@@ -42,20 +54,17 @@ dsh plugin --profile <profile> add @dtapp/dsh-git-guard \
 
 `<profile>` 填要保护的 profile 名（如 `web`、`desktop`；首次使用会自动初始化）。从源码 checkout 运行 DSH 时，把 `dsh` 换成 `pnpm dsh`。
 
-若不想每次带 `--registry`，可在 `$DSH_HOME/profiles/<profile>/.npmrc` 中固定 scope 映射：
+已经按「前置」配好 scope 映射后可省略 `--registry`：
 
-```ini
-@dtapp:registry=https://npm.cnb.cool/dtapp/dsh/-/packages/
+```bash
+dsh plugin --profile <profile> add @dtapp/dsh-git-guard
 ```
 
-之后直接 `dsh plugin --profile <profile> add @dtapp/dsh-git-guard`。
+**提示「未找到相关插件 / 404 / lockfile 校验失败」时**：
 
-**提示「未找到相关插件 / 404」时**：
-
-- 这个包没有发布到 npmjs、npmmirror 或 cordis 官方插件市场，因此默认插件市场里搜不到； 需先按方式一添加自建索引源，或按方式二用命令行安装。
-- 命令行安装必须带 `--registry`（或配好 scope 映射）。只写包名会从默认源拉取并报 `ERR_PNPM_FETCH_404`。
-- 插件页「检查更新」同样会查 profile 的安装源。含本仓库 `cordis.patch.yml` 备选源配置的版本装上后会自动回落到 CNB； 更早的版本（如 1.0.2）没有该配置，需要先升级。
-- 若 `~/.npmrc` 或 profile 的 `.npmrc` 里已有指向别处的 `@dtapp:registry`，命令行的 `--registry` 不会覆盖 scope 级配置，需要先删掉/改对那一行。可用 `npm config get @dtapp:registry` 检查。
+- 这个包没有发布到 npmjs、npmmirror 或 cordis 官方插件市场，默认源里搜不到；先按「前置」配 `@dtapp:registry`，再按方式一加索引源或方式二安装。
+- 命令行只写包名、没有 scope 映射、也没有 `--registry` 时，会从默认源拉取并报 `ERR_PNPM_FETCH_404`；装完依赖后若 lockfile 校验仍报同样 404，也是同一个原因，补上 scope 映射即可。
+- 插件页「检查更新」和 pnpm 的 lockfile 供应链校验都按 scope 映射回源；只有 CNB 地址写进 profile `.npmrc` 才会稳定生效。包里 `cordis.patch.yml` 的配置只管插件管理器自己的行，管不到 pnpm，也不能替你改写 `.npmrc`。
 
 安装后验证（应看到 `# == @dtapp/dsh-git-guard` 和 `- id: dsh-git-guard`）：
 
@@ -68,6 +77,20 @@ dsh --profile <profile> --dump-config
 ```bash
 dsh plugin --profile <profile> remove @dtapp/dsh-git-guard
 ```
+
+### 辅助脚本：配置/撤销 scope 映射
+
+不想手写 profile 的 `.npmrc` 可运行 `scripts/setup-registry.mjs`。它只改 `$DSH_HOME/profiles/<profile>/.npmrc`，幂等、只动 `@dtapp` 一行，带 `--undo` 可撤销；不挂 `postinstall`、不碰 npm 全局配置。
+
+```bash
+# 配置（profile 名取自 DSH_HOME/profiles 下的目录）
+node scripts/setup-registry.mjs --profile <profile>
+
+# 撤销
+node scripts/setup-registry.mjs --profile <profile> --undo
+```
+
+`DSH_HOME` 默认取 `~/.dsh`；脚本零依赖，仅在被显式调用时执行。
 
 ## 机制
 

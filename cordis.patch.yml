@@ -9,15 +9,3 @@
       config:
         enabled: true
         promptNotice: true
-
-# This package is published only to the CNB registry. The Plugins page's update
-# check asks the profile's install sources, which by default means npm's public
-# registry, where the package does not exist. Declaring CNB as a fallback keeps
-# the check working after a DSH restart without per-user npm configuration.
-# A private default registry still stays alone: DSH never falls through it.
-- id: plugin-manager
-  name: '@deepseek-ai/dsh-plugin-manager'
-  config:
-    fallbackRegistries:
-      - https://registry.npmmirror.com/
-      - https://npm.cnb.cool/dtapp/dsh/-/packages/
