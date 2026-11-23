@@ -1,7 +1,7 @@
 {
   "name": "@dtapp/dsh-git-guard",
   "version": "1.0.0",
-  "description": "Blocks agent-initiated git commit, push, and other git write operations at the tool-policy layer.",
+  "description": "在工具策略层阻止 agent 自行执行 git commit、push 等 git 写操作，只读 git 命令仍可用。",
   "type": "module",
   "exports": {
     ".": "./index.js",
