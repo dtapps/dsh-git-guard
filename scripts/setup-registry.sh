@@ -29,6 +29,14 @@ msg() {
     zh:no_profiles) printf '%s 下没有 profile 目录，请用 --profile 指定\n' "$@" ;;
     en:multiple_profiles) printf 'multiple profiles under %s: %s; specify one with --profile\n' "$@" ;;
     zh:multiple_profiles) printf '%s 下有多个 profile：%s；请用 --profile 指定其中一个\n' "$@" ;;
+    en:select_title) printf 'multiple profiles found; choose one:\n' ;;
+    zh:select_title) printf '检测到多个 profile，请选择一个：\n' ;;
+    en:select_prompt) printf 'enter number or name:\n' ;;
+    zh:select_prompt) printf '输入序号或名称：\n' ;;
+    en:select_retry) printf 'invalid choice; try again\n' ;;
+    zh:select_retry) printf '输入无效，请重试\n' ;;
+    en:selected) printf 'using profile: %s\n' "$@" ;;
+    zh:selected) printf '使用 profile：%s\n' "$@" ;;
     en:unchanged) printf '%s unchanged\n' "$@" ;;
     zh:unchanged) printf '%s 未变更\n' "$@" ;;
     en:removed) printf 'removed %s in %s\n' "$@" ;;
@@ -85,18 +93,55 @@ if [ -n "$profile" ]; then
 else
   count=0
   names=""
+  display=""
   for d in "$dsh_home"/profiles/*; do
     [ -d "$d" ] || continue
     count=$((count + 1))
     name="${d##*/}"
-    if [ -n "$names" ]; then names="$names $name"; else names="$name"; fi
+    if [ -n "$names" ]; then
+      names="$names
+$name"
+      display="$display $name"
+    else
+      names="$name"
+      display="$name"
+    fi
   done
   if [ "$count" -eq 0 ]; then
     msg no_profiles "$dsh_home/profiles" >&2
     exit 1
   elif [ "$count" -gt 1 ]; then
-    msg multiple_profiles "$dsh_home/profiles" "$names" >&2
-    exit 1
+    if [ -r /dev/tty ] && [ "${DSH_NON_INTERACTIVE:-0}" != "1" ]; then
+      msg select_title >&2
+      printf '%s\n' "$names" | awk '{ printf "  %d) %s\n", NR, $0 }' >&2
+      while :; do
+        msg select_prompt >/dev/tty
+        if ! read -r choice </dev/tty; then
+          msg multiple_profiles "$dsh_home/profiles" "$display" >&2
+          exit 1
+        fi
+        case "$choice" in
+          '' | *[!0-9]*)
+            if printf '%s\n' "$names" | awk -v want="$choice" '$0 == want { found = 1 } END { exit !found }'; then
+              profile="$choice"
+              break
+            fi
+            msg select_retry >&2
+            ;;
+          *)
+            if [ "$choice" -ge 1 ] && [ "$choice" -le "$count" ]; then
+              profile="$(printf '%s\n' "$names" | sed -n "${choice}p")"
+              break
+            fi
+            msg select_retry >&2
+            ;;
+        esac
+      done
+      msg selected "$profile"
+    else
+      msg multiple_profiles "$dsh_home/profiles" "$display" >&2
+      exit 1
+    fi
   else
     profile="$name"
     msg auto_detected "$profile"

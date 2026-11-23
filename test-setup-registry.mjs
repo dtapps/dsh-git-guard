@@ -15,7 +15,7 @@ const KEY = "@dtapp:registry";
 const home = await mkdtemp(join(tmpdir(), "dsh-registry-test-"));
 const profileDir = join(home, "profiles", "web");
 const npmrc = join(profileDir, ".npmrc");
-const env = { ...process.env, DSH_HOME: home, DSH_LANG: "en" };
+const env = { ...process.env, DSH_HOME: home, DSH_LANG: "en", DSH_NON_INTERACTIVE: "1" };
 
 import { spawnSync } from "node:child_process";
 

@@ -82,7 +82,7 @@ dsh plugin --profile web remove @dtapp/dsh-git-guard
 
 不想手写 profile 的 `.npmrc` 可直接运行 `scripts/setup-registry.sh`（POSIX sh，无需 Node）。它只改 `$DSH_HOME/profiles/你的profile名/.npmrc`，幂等、只动 `@dtapp` 一行，带 `--undo` 可撤销；不挂 `postinstall`、不碰 npm 全局配置。
 
-脚本会自动检测 profile：`~/.dsh/profiles` 下只有一个目录时直接用它，不需要你填名字；有多个时用 `--profile` 指定其中一个。
+脚本会自动检测 profile：`~/.dsh/profiles` 下只有一个目录时直接用它，不需要你填名字；有多个时会在终端列出列表让你选（输入序号或名称，通过 `curl | sh` 执行也一样），也可以用 `--profile` 指定。CI 等无终端环境设 `DSH_NON_INTERACTIVE=1` 后，多个 profile 会直接报错退出。
 
 本地已克隆仓库时：
 
