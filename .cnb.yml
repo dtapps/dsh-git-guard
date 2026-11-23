@@ -1,5 +1,4 @@
 include:
-  - path: '.cnb/pai.yml'
   - .cnb/workflows/index-pr.yml
   - .cnb/workflows/publish.yml
   - .cnb/workflows/push.yml
