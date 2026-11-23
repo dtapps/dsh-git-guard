@@ -3,7 +3,7 @@
  *   node test-setup-registry.mjs
  */
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -53,4 +53,16 @@ r = run(["--profile", "../escape"]);
 assert.notEqual(r.status, 0);
 assert.match(r.stderr, /invalid --profile/);
 
-console.log("ok — setup-registry: create, idempotent, scope-only, undo, validation");
+// Auto-detects the only profile when --profile is omitted.
+r = run([]);
+assert.equal(r.status, 0, r.stderr || r.stdout);
+assert.match(r.stdout, /detected: web/);
+assert.match(await readFile(npmrc, "utf8"), new RegExp(`^${KEY.replace("@", "\\@")}=${REGISTRY.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "m"));
+
+// Refuses to guess when several profiles exist.
+await mkdir(join(home, "profiles", "desktop"), { recursive: true });
+r = run([]);
+assert.notEqual(r.status, 0);
+assert.match(r.stderr, /multiple profiles/);
+
+console.log("ok — setup-registry: create, idempotent, scope-only, undo, validation, auto-detect");

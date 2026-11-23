@@ -17,12 +17,18 @@ msg() {
   key=$1
   shift
   case "$DSH_LANG:$key" in
-    en:usage) printf 'Usage: %s --profile <name> [--undo]\n' "$@" ;;
-    zh:usage) printf '用法：%s --profile <名称> [--undo]\n' "$@" ;;
+    en:usage) printf 'Usage: %s [--profile NAME] [--undo]\n' "$@" ;;
+    zh:usage) printf '用法：%s [--profile 名称] [--undo]\n' "$@" ;;
     en:unknown_arg) printf 'unknown argument: %s\n' "$@" ;;
     zh:unknown_arg) printf '未知参数：%s\n' "$@" ;;
-    en:invalid_profile) printf 'missing or invalid --profile (expected a single directory name)\n' ;;
-    zh:invalid_profile) printf '缺少或无效的 --profile（应为单层目录名）\n' ;;
+    en:invalid_profile) printf 'invalid --profile: %s (expected a single directory name)\n' "$@" ;;
+    zh:invalid_profile) printf '无效的 --profile：%s（应为单层目录名）\n' "$@" ;;
+    en:auto_detected) printf 'profile not specified; detected: %s\n' "$@" ;;
+    zh:auto_detected) printf '未指定 profile，自动检测到：%s\n' "$@" ;;
+    en:no_profiles) printf 'no profile directory under %s; specify one with --profile\n' "$@" ;;
+    zh:no_profiles) printf '%s 下没有 profile 目录，请用 --profile 指定\n' "$@" ;;
+    en:multiple_profiles) printf 'multiple profiles under %s: %s; specify one with --profile\n' "$@" ;;
+    zh:multiple_profiles) printf '%s 下有多个 profile：%s；请用 --profile 指定其中一个\n' "$@" ;;
     en:unchanged) printf '%s unchanged\n' "$@" ;;
     zh:unchanged) printf '%s 未变更\n' "$@" ;;
     en:removed) printf 'removed %s in %s\n' "$@" ;;
@@ -40,6 +46,7 @@ usage() {
   msg usage "${0##*/}" >&2
 }
 
+dsh_home="${DSH_HOME:-$HOME/.dsh}"
 profile=""
 undo=0
 while [ "$#" -gt 0 ]; do
@@ -68,14 +75,34 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-case "$profile" in
-  "" | "." | ".." | */* | *\\*)
-    msg invalid_profile >&2
+if [ -n "$profile" ]; then
+  case "$profile" in
+    "." | ".." | */* | *\\*)
+      msg invalid_profile "$profile" >&2
+      exit 1
+      ;;
+  esac
+else
+  count=0
+  names=""
+  for d in "$dsh_home"/profiles/*; do
+    [ -d "$d" ] || continue
+    count=$((count + 1))
+    name="${d##*/}"
+    if [ -n "$names" ]; then names="$names $name"; else names="$name"; fi
+  done
+  if [ "$count" -eq 0 ]; then
+    msg no_profiles "$dsh_home/profiles" >&2
     exit 1
-    ;;
-esac
+  elif [ "$count" -gt 1 ]; then
+    msg multiple_profiles "$dsh_home/profiles" "$names" >&2
+    exit 1
+  else
+    profile="$name"
+    msg auto_detected "$profile"
+  fi
+fi
 
-dsh_home="${DSH_HOME:-$HOME/.dsh}"
 dir="${dsh_home}/profiles/${profile}"
 file="${dir}/.npmrc"
 tmp="$(mktemp "${TMPDIR:-/tmp}/setup-registry.XXXXXX")"

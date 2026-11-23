@@ -18,7 +18,7 @@
 @dtapp:registry=https://npm.cnb.cool/dtapp/dsh/-/packages/
 ```
 
-文件位置：`$DSH_HOME/profiles/<profile>/.npmrc`（`<profile>` 如 `web`、`desktop`）。不想手写可运行仓库里的辅助脚本，见「辅助脚本」一节。scope 映射对所有安装方式都生效，包括发现页点击安装、命令行安装和 lockfile 供应链校验。手动加过索引源、或用 `--registry` 安装过的 profile 也建议补上这一行。
+文件位置：`$DSH_HOME/profiles/你的profile名/.npmrc`（如 `web`、`desktop`）。不想手写可运行仓库里的辅助脚本，见「辅助脚本」一节。scope 映射对所有安装方式都生效，包括发现页点击安装、命令行安装和 lockfile 供应链校验。手动加过索引源、或用 `--registry` 安装过的 profile 也建议补上这一行。
 
 注意：`--registry=<CNB 地址>` 只作用于那一次安装；`.npmrc` 里的 `registry=` 是全局默认源；只有 `@dtapp:registry=` 会让 pnpm 在校验/更新时也把 `@dtapp` 包指向 CNB。若 `~/.npmrc` 或 profile `.npmrc` 里已有指向别处的 `@dtapp:registry`，先改正或删掉那一行（`npm config get @dtapp:registry` 可检查）。
 
@@ -45,19 +45,19 @@ PR 提交后全自动闭环，无需人工介入：
 
 ### 方式二：命令行安装
 
-`dsh plugin` 会把后续参数原样转发给 profile 目录里的 pnpm，因此一条命令即可安装：
+`dsh plugin` 会把后续参数原样转发给 profile 目录里的 pnpm，因此一条命令即可安装。下面示例用 `web` 作 profile 名，复制时换成你自己的（如 `desktop`；首次使用会自动初始化）：
 
 ```bash
-dsh plugin --profile <profile> add @dtapp/dsh-git-guard \
+dsh plugin --profile web add @dtapp/dsh-git-guard \
   --registry=https://npm.cnb.cool/dtapp/dsh/-/packages/
 ```
 
-`<profile>` 填要保护的 profile 名（如 `web`、`desktop`；首次使用会自动初始化）。从源码 checkout 运行 DSH 时，把 `dsh` 换成 `pnpm dsh`。
+从源码 checkout 运行 DSH 时，把 `dsh` 换成 `pnpm dsh`。
 
 已经按「前置」配好 scope 映射后可省略 `--registry`：
 
 ```bash
-dsh plugin --profile <profile> add @dtapp/dsh-git-guard
+dsh plugin --profile web add @dtapp/dsh-git-guard
 ```
 
 **提示「未找到相关插件 / 404 / lockfile 校验失败」时**：
@@ -69,35 +69,36 @@ dsh plugin --profile <profile> add @dtapp/dsh-git-guard
 安装后验证（应看到 `# == @dtapp/dsh-git-guard` 和 `- id: dsh-git-guard`）：
 
 ```bash
-dsh --profile <profile> --dump-config
+dsh --profile web --dump-config
 ```
 
 重新启动该 profile，guard 即对整个 Harness 生效。卸载用：
 
 ```bash
-dsh plugin --profile <profile> remove @dtapp/dsh-git-guard
+dsh plugin --profile web remove @dtapp/dsh-git-guard
 ```
 
 ### 辅助脚本：配置/撤销 scope 映射
 
-不想手写 profile 的 `.npmrc` 可直接运行 `scripts/setup-registry.sh`（POSIX sh，无需 Node）。它只改 `$DSH_HOME/profiles/<profile>/.npmrc`，幂等、只动 `@dtapp` 一行，带 `--undo` 可撤销；不挂 `postinstall`、不碰 npm 全局配置。
+不想手写 profile 的 `.npmrc` 可直接运行 `scripts/setup-registry.sh`（POSIX sh，无需 Node）。它只改 `$DSH_HOME/profiles/你的profile名/.npmrc`，幂等、只动 `@dtapp` 一行，带 `--undo` 可撤销；不挂 `postinstall`、不碰 npm 全局配置。
+
+脚本会自动检测 profile：`~/.dsh/profiles` 下只有一个目录时直接用它，不需要你填名字；有多个时用 `--profile` 指定其中一个。
 
 本地已克隆仓库时：
 
 ```bash
-# 配置（profile 名取自 DSH_HOME/profiles 下的目录）
-./scripts/setup-registry.sh --profile <profile>
+# 配置
+./scripts/setup-registry.sh
 
 # 撤销
-./scripts/setup-registry.sh --profile <profile> --undo
+./scripts/setup-registry.sh --undo
 ```
 
 手上没有仓库时，用 curl 拉取同一脚本执行（raw 地址与插件市场索引源同源）：
 
 ```bash
-URL=https://cnb.cool/dtapp/dsh-git-guard/-/git/raw/main/scripts/setup-registry.sh
-curl -fsSL "$URL" | sh -s -- --profile <profile>          # 配置
-curl -fsSL "$URL" | sh -s -- --profile <profile> --undo   # 撤销
+curl -fsSL https://cnb.cool/dtapp/dsh-git-guard/-/git/raw/main/scripts/setup-registry.sh | sh -s --            # 配置
+curl -fsSL https://cnb.cool/dtapp/dsh-git-guard/-/git/raw/main/scripts/setup-registry.sh | sh -s -- --undo     # 撤销
 ```
 
 `curl ... | sh` 会直接执行远端脚本，介意的话可先下载查看，或把 `main` 换成固定 tag/commit 避免内容漂移。
