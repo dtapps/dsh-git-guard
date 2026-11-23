@@ -16,13 +16,51 @@
 #   PRERELEASE     true | false
 set -euo pipefail
 
-: "${CNB_TOKEN:?CNB_TOKEN is required}"
-: "${CNB_REPO_SLUG:?CNB_REPO_SLUG is required}"
-: "${CNB_COMMIT:?CNB_COMMIT is required}"
-: "${TAG:?TAG is required}"
-: "${VERSION:?VERSION is required}"
-: "${CHANNEL:?CHANNEL is required}"
-: "${PRERELEASE:?PRERELEASE is required}"
+# 输出语言：优先 DSH_LANG，否则按 LC_ALL > LC_MESSAGES > LANG 自动判断。
+case "${DSH_LANG:-${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}}" in
+  zh* | ZH*) DSH_LANG=zh ;;
+  *) DSH_LANG=en ;;
+esac
+
+msg() {
+  local key="$1"
+  shift
+  case "$DSH_LANG:$key" in
+    en:required_env) printf '%s is required\n' "$@" ;;
+    zh:required_env) printf '缺少必需的环境变量 %s\n' "$@" ;;
+    en:dry_run_api) printf '[dry-run] %s %s%s\n' "$@" ;;
+    zh:dry_run_api) printf '[dry-run] %s %s%s\n' "$@" ;;
+    en:create_release) printf '==> create release %s (prerelease=%s, latest=%s)\n' "$@" ;;
+    zh:create_release) printf '==> 创建 Release %s（预发布=%s，最新=%s）\n' "$@" ;;
+    en:release_exists) printf '==> release for %s exists (id %s), replacing\n' "$@" ;;
+    zh:release_exists) printf '==> %s 的 Release 已存在（id %s），将替换\n' "$@" ;;
+    en:pruning) printf '==> pruning nightly releases, keeping %s\n' "$@" ;;
+    zh:pruning) printf '==> 清理 nightly Release，保留 %s 个\n' "$@" ;;
+    en:dry_run_prune) printf '[dry-run] node scripts/prune-nightly.mjs\n' ;;
+    zh:dry_run_prune) printf '[dry-run] node scripts/prune-nightly.mjs\n' ;;
+    en:release_ready) printf '==> release %s ready\n' "$@" ;;
+    zh:release_ready) printf '==> Release %s 已就绪\n' "$@" ;;
+    en:description_nightly) printf 'Nightly build of %s (UTC %s). Not for production use.\n' "$@" ;;
+    zh:description_nightly) printf '%s 的 nightly 构建（UTC %s），不用于生产环境。\n' "$@" ;;
+    en:description_stable) printf '%s %s (%s).\n' "$@" ;;
+    zh:description_stable) printf '%s %s（%s）。\n' "$@" ;;
+  esac
+}
+
+require() {
+  if [ -z "$(printenv "$1" 2>/dev/null)" ]; then
+    msg required_env "$1" >&2
+    exit 1
+  fi
+}
+
+require CNB_TOKEN
+require CNB_REPO_SLUG
+require CNB_COMMIT
+require TAG
+require VERSION
+require CHANNEL
+require PRERELEASE
 
 API="https://api.cnb.cool"
 NIGHTLY_KEEP="${NIGHTLY_KEEP:-3}"
@@ -31,7 +69,7 @@ DRY_RUN="${DRY_RUN:-0}"
 api() {
   local method="$1" path="$2" body="${3:-}"
   if [ "$DRY_RUN" = "1" ]; then
-    echo "[dry-run] $method $API$path ${body:+--data '$body'}"
+    msg dry_run_api "$method" "$API$path" "${body:+--data '$body'}"
     return 0
   fi
   if [ -n "$body" ]; then
@@ -51,9 +89,9 @@ api() {
 PKG_NAME="$(node -p "require('./package.json').name" 2>/dev/null || echo "${CNB_REPO_NAME_LOWERCASE:-dsh-git-guard}")"
 TITLE="${PKG_NAME} ${VERSION}"
 if [ "$CHANNEL" = "nightly" ]; then
-  DESCRIPTION="Nightly build of ${CNB_COMMIT_SHORT:-${CNB_COMMIT:0:8}} (UTC $(date -u +%Y-%m-%d)). Not for production use."
+  DESCRIPTION="$(msg description_nightly "${CNB_COMMIT_SHORT:-${CNB_COMMIT:0:8}}" "$(date -u +%Y-%m-%d)")"
 else
-  DESCRIPTION="${PKG_NAME} ${VERSION} (${CHANNEL})."
+  DESCRIPTION="$(msg description_stable "$PKG_NAME" "$VERSION" "$CHANNEL")"
 fi
 MAKE_LATEST="false"
 [ "$PRERELEASE" = "false" ] && MAKE_LATEST="true"
@@ -61,21 +99,21 @@ MAKE_LATEST="false"
 BODY="$(printf '{"tag_name":"%s","name":"%s","body":"%s","prerelease":%s,"make_latest":%s,"target_commitish":"%s"}' \
   "$TAG" "$TITLE" "$DESCRIPTION" "$PRERELEASE" "$MAKE_LATEST" "$CNB_COMMIT")"
 
-echo "==> create release ${TAG} (prerelease=${PRERELEASE}, latest=${MAKE_LATEST})"
+msg create_release "$TAG" "$PRERELEASE" "$MAKE_LATEST"
 existing="$(api GET "/${CNB_REPO_SLUG}/-/releases/tags/${TAG}" 2>/dev/null || true)"
 existing_id="$(printf '%s' "$existing" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);if(j&&j.id!==undefined)console.log(j.id)}catch{}})' 2>/dev/null || true)"
 if [ -n "$existing_id" ]; then
-  echo "==> release for ${TAG} exists (id ${existing_id}), replacing"
+  msg release_exists "$TAG" "$existing_id"
   api DELETE "/${CNB_REPO_SLUG}/-/releases/${existing_id}" >/dev/null
 fi
 api POST "/${CNB_REPO_SLUG}/-/releases" "$BODY" >/dev/null
 
 if [ "$CHANNEL" = "nightly" ]; then
-  echo "==> pruning nightly releases, keeping ${NIGHTLY_KEEP}"
+  msg pruning "$NIGHTLY_KEEP"
   if [ "$DRY_RUN" = "1" ]; then
-    echo "[dry-run] node scripts/prune-nightly.mjs"
+    msg dry_run_prune
   else
     node scripts/prune-nightly.mjs
   fi
 fi
-echo "==> release ${TAG} ready"
+msg release_ready "$TAG"

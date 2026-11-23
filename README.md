@@ -80,17 +80,29 @@ dsh plugin --profile <profile> remove @dtapp/dsh-git-guard
 
 ### 辅助脚本：配置/撤销 scope 映射
 
-不想手写 profile 的 `.npmrc` 可运行 `scripts/setup-registry.mjs`。它只改 `$DSH_HOME/profiles/<profile>/.npmrc`，幂等、只动 `@dtapp` 一行，带 `--undo` 可撤销；不挂 `postinstall`、不碰 npm 全局配置。
+不想手写 profile 的 `.npmrc` 可直接运行 `scripts/setup-registry.sh`（POSIX sh，无需 Node）。它只改 `$DSH_HOME/profiles/<profile>/.npmrc`，幂等、只动 `@dtapp` 一行，带 `--undo` 可撤销；不挂 `postinstall`、不碰 npm 全局配置。
+
+本地已克隆仓库时：
 
 ```bash
 # 配置（profile 名取自 DSH_HOME/profiles 下的目录）
-node scripts/setup-registry.mjs --profile <profile>
+./scripts/setup-registry.sh --profile <profile>
 
 # 撤销
-node scripts/setup-registry.mjs --profile <profile> --undo
+./scripts/setup-registry.sh --profile <profile> --undo
 ```
 
-`DSH_HOME` 默认取 `~/.dsh`；脚本零依赖，仅在被显式调用时执行。
+手上没有仓库时，用 curl 拉取同一脚本执行（raw 地址与插件市场索引源同源）：
+
+```bash
+URL=https://cnb.cool/dtapp/dsh-git-guard/-/git/raw/main/scripts/setup-registry.sh
+curl -fsSL "$URL" | sh -s -- --profile <profile>          # 配置
+curl -fsSL "$URL" | sh -s -- --profile <profile> --undo   # 撤销
+```
+
+`curl ... | sh` 会直接执行远端脚本，介意的话可先下载查看，或把 `main` 换成固定 tag/commit 避免内容漂移。
+
+`DSH_HOME` 默认取 `~/.dsh`；脚本零依赖，仅在被显式调用时执行。输出语言按 `LC_ALL` → `LC_MESSAGES` → `LANG` 自动选择中文或英文，也可用 `DSH_LANG=zh` / `DSH_LANG=en` 显式覆盖。
 
 ## 机制
 

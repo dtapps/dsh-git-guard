@@ -32,13 +32,34 @@
 # publishing itself is done by the tencentcom/npm plugin, not here.
 set -euo pipefail
 
+# 输出语言：优先 DSH_LANG，否则按 LC_ALL > LC_MESSAGES > LANG 自动判断。
+case "${DSH_LANG:-${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}}" in
+  zh* | ZH*) DSH_LANG=zh ;;
+  *) DSH_LANG=en ;;
+esac
+
+msg() {
+  local key="$1"
+  shift
+  case "$DSH_LANG:$key" in
+    en:cannot_determine_pkg) printf 'resolve-version: cannot determine package name (package.json or CNB_REPO_NAME_LOWERCASE)\n' ;;
+    zh:cannot_determine_pkg) printf 'resolve-version：无法确定包名（package.json 或 CNB_REPO_NAME_LOWERCASE）\n' ;;
+    en:version_required) printf "resolve-version: VERSION input is required (a semver, or the literal 'nightly')\n" ;;
+    zh:version_required) printf "resolve-version：缺少 VERSION 输入（需为 semver 或字面量 'nightly'）\n" ;;
+    en:invalid_semver) printf "resolve-version: '%s' is not a semver (expected 1.2.3 or 1.2.3-rc.1, or 'nightly')\n" "$@" ;;
+    zh:invalid_semver) printf "resolve-version：'%s' 不是合法的 semver（应为 1.2.3、1.2.3-rc.1 或 'nightly'）\n" "$@" ;;
+    en:resolved) printf 'resolved: version=%s tag=%s channel=%s dist-tag=%s prerelease=%s\n' "$@" ;;
+    zh:resolved) printf '已解析：version=%s tag=%s channel=%s dist-tag=%s prerelease=%s\n' "$@" ;;
+  esac
+}
+
 OUTPUT_FILE="${OUTPUT_FILE:-.version.env}"
 
 # PKG_NAME from package.json, else @<group>/<repo> from the built-in env.
 PKG_NAME="${PKG_NAME:-$(node -p "require('./package.json').name" 2>/dev/null || true)}"
 [ -n "$PKG_NAME" ] || PKG_NAME="@${CNB_GROUP_SLUG_LOWERCASE:-}/${CNB_REPO_NAME_LOWERCASE:-}"
 [ -n "$PKG_NAME" ] || {
-  echo "resolve-version: cannot determine package name (package.json or CNB_REPO_NAME_LOWERCASE)" >&2
+  msg cannot_determine_pkg >&2
   exit 1
 }
 SCOPE="${PKG_NAME%%/*}"
@@ -121,10 +142,10 @@ if [ "$raw" = "nightly" ]; then
   esac
   VERSION="$(bump_patch "$base")-nightly.$(date -u +%Y%m%d)"
 elif [ -z "$raw" ]; then
-  echo "resolve-version: VERSION input is required (a semver, or the literal 'nightly')" >&2
+  msg version_required >&2
   exit 1
 elif [[ ! $raw =~ $SEMVER_RE ]]; then
-  echo "resolve-version: '$raw' is not a semver (expected 1.2.3 or 1.2.3-rc.1, or 'nightly')" >&2
+  msg invalid_semver "$raw" >&2
   exit 1
 else
   VERSION="$raw"
@@ -163,5 +184,5 @@ for key in VERSION TAG CHANNEL DIST_TAG PRERELEASE; do
   echo "##[set-output ${key}=${!key}]"
 done
 
-echo "resolved: version=${VERSION} tag=${TAG} channel=${CHANNEL} dist-tag=${DIST_TAG} prerelease=${PRERELEASE}"
+msg resolved "$VERSION" "$TAG" "$CHANNEL" "$DIST_TAG" "$PRERELEASE"
 cat "$OUTPUT_FILE"

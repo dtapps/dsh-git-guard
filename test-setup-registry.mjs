@@ -1,25 +1,26 @@
 /**
- * Self-check for scripts/setup-registry.mjs's .npmrc rewriting. Run with:
+ * Self-check for scripts/setup-registry.sh's .npmrc rewriting. Run with:
  *   node test-setup-registry.mjs
  */
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const script = new URL("./scripts/setup-registry.mjs", import.meta.url);
+const script = fileURLToPath(new URL("./scripts/setup-registry.sh", import.meta.url));
 const REGISTRY = "https://npm.cnb.cool/dtapp/dsh/-/packages/";
 const KEY = "@dtapp:registry";
 
 const home = await mkdtemp(join(tmpdir(), "dsh-registry-test-"));
 const profileDir = join(home, "profiles", "web");
 const npmrc = join(profileDir, ".npmrc");
-const env = { ...process.env, DSH_HOME: home };
+const env = { ...process.env, DSH_HOME: home, DSH_LANG: "en" };
 
 import { spawnSync } from "node:child_process";
 
 function run(args) {
-	return spawnSync(process.execPath, [script.pathname, ...args], { env, encoding: "utf8" });
+	return spawnSync(script, args, { env, encoding: "utf8" });
 }
 
 // Creates the file and only touches the @dtapp line.
