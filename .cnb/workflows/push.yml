@@ -1,6 +1,5 @@
 # push 自检：每次推送都跑插件逻辑自检（44 条拦截 / 26 条放行）。
 # 由 .cnb.yml 的 include 引入。
-
 main:
   push:
     - name: push 自检

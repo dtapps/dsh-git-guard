@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Git write guard",
-    "description": "Blocks agent-initiated git commit, push, tag, merge, rebase, reset, and similar write operations across bash, pwsh, run_code, and terminal sessions, while leaving read-only git commands available."
+    "description": "Blocks agent-initiated git commit, push, tag, merge, rebase, reset, and similar write operations across bash, pwsh, run_code, and terminal sessions, while leaving read-only git commands available.",
+    "title": "Git write guard"
   }
 }

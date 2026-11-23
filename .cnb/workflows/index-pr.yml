@@ -2,7 +2,6 @@
 #
 # 由 .cnb.yml 的 include 引入。索引更新 PR 由发布流水线里的「索引更新员」提交，
 # 这里负责：确定性校验 + NPC 审查批准 + 评审通过后自动 squash 合并。
-
 main:
   # 索引更新 PR 的自动审查：NPC 提完 PR 后，这里直接跑「索引审查员」核对
   # market/index.json 并提交 approve 评审，不需要人工点批准。用 npc:go 而非
@@ -30,9 +29,9 @@ main:
           options:
             role: 索引审查员
             systemPrompt: 你是 dsh-git-guard 仓库的自动化审查助手，只审查 market/index.json 的更新，严格遵守角色指令。
-            userPrompt: 请按「索引审查员」的职责审查当前 PR。PR 编号在环境变量 CNB_PULL_REQUEST_IID 中，仓库在 CNB_REPO_SLUG 中，校验通过后按角色指令调用 approve 接口批准，不通过则提交 REQUEST_CHANGES 评审。
+            userPrompt: 请按「索引审查员」的职责审查当前 PR。PR 编号在环境变量 CNB_PULL_REQUEST_IID 中，仓库在 CNB_REPO_SLUG 中，校验通过后按角色指令调用 approve 接口批准，不通过则提交
+              REQUEST_CHANGES 评审。
             maxTurns: 60
-
   # 保护分支 main 上：评审通过 + 状态检查通过 + 无冲突后，自动 squash 合并并删除源分支。
   # 前置条件：仓库设置 → 分支保护 → main 勾选「需要评审人批准」。
   pull_request.mergeable:

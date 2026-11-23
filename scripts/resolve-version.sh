@@ -37,7 +37,10 @@ OUTPUT_FILE="${OUTPUT_FILE:-.version.env}"
 # PKG_NAME from package.json, else @<group>/<repo> from the built-in env.
 PKG_NAME="${PKG_NAME:-$(node -p "require('./package.json').name" 2>/dev/null || true)}"
 [ -n "$PKG_NAME" ] || PKG_NAME="@${CNB_GROUP_SLUG_LOWERCASE:-}/${CNB_REPO_NAME_LOWERCASE:-}"
-[ -n "$PKG_NAME" ] || { echo "resolve-version: cannot determine package name (package.json or CNB_REPO_NAME_LOWERCASE)" >&2; exit 1; }
+[ -n "$PKG_NAME" ] || {
+  echo "resolve-version: cannot determine package name (package.json or CNB_REPO_NAME_LOWERCASE)" >&2
+  exit 1
+}
 SCOPE="${PKG_NAME%%/*}"
 SCOPE="${SCOPE#/}"
 
@@ -55,14 +58,14 @@ raw="${raw#v}"
 SEMVER_RE='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+(\.[0-9A-Za-z.-]+)*)?$'
 
 channel_of() {
-	case "$1" in
-	*-rc.*) echo rc ;;
-	*-beta.*) echo beta ;;
-	*-alpha.*) echo alpha ;;
-	*-nightly.*) echo nightly ;;
-	*-*) echo prerelease ;;
-	*) echo stable ;;
-	esac
+  case "$1" in
+    *-rc.*) echo rc ;;
+    *-beta.*) echo beta ;;
+    *-alpha.*) echo alpha ;;
+    *-nightly.*) echo nightly ;;
+    *-*) echo prerelease ;;
+    *) echo stable ;;
+  esac
 }
 
 # latest_stable <registry> <encoded package name>
@@ -70,10 +73,11 @@ channel_of() {
 # trusted when it points to a stable version: this registry currently keeps nightly
 # builds in `latest`, and bumping those would drift the nightly baseline upward.
 latest_stable() {
-	local registry="$1" pkg="$2" json latest
-	json="$(curl -fsSL --max-time 30 "${registry%/}/${pkg}" 2>/dev/null || true)"
-	if [ -n "$json" ]; then
-		latest="$(printf '%s' "$json" | node -e '
+  local registry="$1" pkg="$2" json latest
+  json="$(curl -fsSL --max-time 30 "${registry%/}/${pkg}" 2>/dev/null || true)"
+  if [ -n "$json" ]; then
+    latest="$(
+      printf '%s' "$json" | node -e '
 			let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
 				try{const j=JSON.parse(s);const t=j["dist-tags"]||{};
 					const stable=v=>typeof v==="string"&&!/[-]/.test(v);
@@ -82,65 +86,81 @@ latest_stable() {
 					if(vs.length){vs.sort((a,b)=>{const p=x=>x.split(".").map(Number);const A=p(a),B=p(b);for(let i=0;i<3;i++)if(A[i]!==B[i])return B[i]-A[i];return 0;});return console.log(vs[0]);}
 				}catch{}
 			});'
-		)"
-		if [ -n "$latest" ]; then echo "$latest"; return; fi
-	fi
-	# Fall back to the newest stable git tag on the remote.
-	local tag
-	tag="$(git -C "$(git rev-parse --show-toplevel)" tag --list 'v[0-9]*' \
-		| grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)"
-	if [ -n "$tag" ]; then echo "${tag#v}"; return; fi
-	echo "0.0.0"
+    )"
+    if [ -n "$latest" ]; then
+      echo "$latest"
+      return
+    fi
+  fi
+  # Fall back to the newest stable git tag on the remote.
+  local tag
+  tag="$(git -C "$(git rev-parse --show-toplevel)" tag --list 'v[0-9]*' \
+    | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)"
+  if [ -n "$tag" ]; then
+    echo "${tag#v}"
+    return
+  fi
+  echo "0.0.0"
 }
 
 bump_patch() {
-	local v="$1" maj min pat
-	maj="${v%%.*}"; v="${v#*.}"
-	min="${v%%.*}"; pat="${v#*.}"
-	# Drop any prerelease suffix left on the patch segment.
-	pat="${pat%%-*}"
-	echo "${maj}.${min}.$((pat + 1))"
+  local v="$1" maj min pat
+  maj="${v%%.*}"
+  v="${v#*.}"
+  min="${v%%.*}"
+  pat="${v#*.}"
+  # Drop any prerelease suffix left on the patch segment.
+  pat="${pat%%-*}"
+  echo "${maj}.${min}.$((pat + 1))"
 }
 
 if [ "$raw" = "nightly" ]; then
-	base="$(latest_stable "$NPM_REGISTRY" "$PKG_NAME")"
-	case "$base" in
-	*[-]*) base="$(echo "$base" | sed 's/-.*//')" ;;
-	esac
-	VERSION="$(bump_patch "$base")-nightly.$(date -u +%Y%m%d)"
+  base="$(latest_stable "$NPM_REGISTRY" "$PKG_NAME")"
+  case "$base" in
+    *[-]*) base="$(echo "$base" | sed 's/-.*//')" ;;
+  esac
+  VERSION="$(bump_patch "$base")-nightly.$(date -u +%Y%m%d)"
 elif [ -z "$raw" ]; then
-	echo "resolve-version: VERSION input is required (a semver, or the literal 'nightly')" >&2
-	exit 1
-elif [[ ! "$raw" =~ $SEMVER_RE ]]; then
-	echo "resolve-version: '$raw' is not a semver (expected 1.2.3 or 1.2.3-rc.1, or 'nightly')" >&2
-	exit 1
+  echo "resolve-version: VERSION input is required (a semver, or the literal 'nightly')" >&2
+  exit 1
+elif [[ ! $raw =~ $SEMVER_RE ]]; then
+  echo "resolve-version: '$raw' is not a semver (expected 1.2.3 or 1.2.3-rc.1, or 'nightly')" >&2
+  exit 1
 else
-	VERSION="$raw"
+  VERSION="$raw"
 fi
 
 CHANNEL="$(channel_of "$VERSION")"
 case "$CHANNEL" in
-stable) DIST_TAG="latest" ; PRERELEASE="false" ;;
-prerelease)
-	# Unrecognized prerelease id: publish under `next`, still a prerelease.
-	DIST_TAG="next" ; PRERELEASE="true" ;;
-*) DIST_TAG="$CHANNEL" ; PRERELEASE="true" ;;
+  stable)
+    DIST_TAG="latest"
+    PRERELEASE="false"
+    ;;
+  prerelease)
+    # Unrecognized prerelease id: publish under `next`, still a prerelease.
+    DIST_TAG="next"
+    PRERELEASE="true"
+    ;;
+  *)
+    DIST_TAG="$CHANNEL"
+    PRERELEASE="true"
+    ;;
 esac
 TAG="v${VERSION}"
 
 {
-	echo "VERSION=${VERSION}"
-	echo "TAG=${TAG}"
-	echo "CHANNEL=${CHANNEL}"
-	echo "DIST_TAG=${DIST_TAG}"
-	echo "PRERELEASE=${PRERELEASE}"
-} > "$OUTPUT_FILE"
+  echo "VERSION=${VERSION}"
+  echo "TAG=${TAG}"
+  echo "CHANNEL=${CHANNEL}"
+  echo "DIST_TAG=${DIST_TAG}"
+  echo "PRERELEASE=${PRERELEASE}"
+} >"$OUTPUT_FILE"
 
 # CNB `exports` maps job-result keys to env vars; result keys are produced only
 # by `##[set-output key=value]` lines on stdout. Without these, downstream
 # stages (tag-nightly / publish / release) receive empty VERSION/TAG/....
 for key in VERSION TAG CHANNEL DIST_TAG PRERELEASE; do
-	echo "##[set-output ${key}=${!key}]"
+  echo "##[set-output ${key}=${!key}]"
 done
 
 echo "resolved: version=${VERSION} tag=${TAG} channel=${CHANNEL} dist-tag=${DIST_TAG} prerelease=${PRERELEASE}"

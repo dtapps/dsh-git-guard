@@ -29,53 +29,53 @@ NIGHTLY_KEEP="${NIGHTLY_KEEP:-3}"
 DRY_RUN="${DRY_RUN:-0}"
 
 api() {
-	local method="$1" path="$2" body="${3:-}"
-	if [ "$DRY_RUN" = "1" ]; then
-		echo "[dry-run] $method $API$path ${body:+--data '$body'}"
-		return 0
-	fi
-	if [ -n "$body" ]; then
-		curl -sS -X "$method" "$API$path" \
-			-H "Authorization: Bearer ${CNB_TOKEN}" \
-			-H "Accept: application/json" \
-			-H "Content-Type: application/json" \
-			--data "$body"
-	else
-		curl -sS -X "$method" "$API$path" \
-			-H "Authorization: Bearer ${CNB_TOKEN}" \
-			-H "Accept: application/json"
-	fi
+  local method="$1" path="$2" body="${3:-}"
+  if [ "$DRY_RUN" = "1" ]; then
+    echo "[dry-run] $method $API$path ${body:+--data '$body'}"
+    return 0
+  fi
+  if [ -n "$body" ]; then
+    curl -sS -X "$method" "$API$path" \
+      -H "Authorization: Bearer ${CNB_TOKEN}" \
+      -H "Accept: application/json" \
+      -H "Content-Type: application/json" \
+      --data "$body"
+  else
+    curl -sS -X "$method" "$API$path" \
+      -H "Authorization: Bearer ${CNB_TOKEN}" \
+      -H "Accept: application/json"
+  fi
 }
 
 # Display name for the Release title/body: read from package.json, not hardcoded.
 PKG_NAME="$(node -p "require('./package.json').name" 2>/dev/null || echo "${CNB_REPO_NAME_LOWERCASE:-dsh-git-guard}")"
 TITLE="${PKG_NAME} ${VERSION}"
 if [ "$CHANNEL" = "nightly" ]; then
-	DESCRIPTION="Nightly build of ${CNB_COMMIT_SHORT:-${CNB_COMMIT:0:8}} (UTC $(date -u +%Y-%m-%d)). Not for production use."
+  DESCRIPTION="Nightly build of ${CNB_COMMIT_SHORT:-${CNB_COMMIT:0:8}} (UTC $(date -u +%Y-%m-%d)). Not for production use."
 else
-	DESCRIPTION="${PKG_NAME} ${VERSION} (${CHANNEL})."
+  DESCRIPTION="${PKG_NAME} ${VERSION} (${CHANNEL})."
 fi
 MAKE_LATEST="false"
 [ "$PRERELEASE" = "false" ] && MAKE_LATEST="true"
 
 BODY="$(printf '{"tag_name":"%s","name":"%s","body":"%s","prerelease":%s,"make_latest":%s,"target_commitish":"%s"}' \
-	"$TAG" "$TITLE" "$DESCRIPTION" "$PRERELEASE" "$MAKE_LATEST" "$CNB_COMMIT")"
+  "$TAG" "$TITLE" "$DESCRIPTION" "$PRERELEASE" "$MAKE_LATEST" "$CNB_COMMIT")"
 
 echo "==> create release ${TAG} (prerelease=${PRERELEASE}, latest=${MAKE_LATEST})"
 existing="$(api GET "/${CNB_REPO_SLUG}/-/releases/tags/${TAG}" 2>/dev/null || true)"
 existing_id="$(printf '%s' "$existing" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);if(j&&j.id!==undefined)console.log(j.id)}catch{}})' 2>/dev/null || true)"
 if [ -n "$existing_id" ]; then
-	echo "==> release for ${TAG} exists (id ${existing_id}), replacing"
-	api DELETE "/${CNB_REPO_SLUG}/-/releases/${existing_id}" >/dev/null
+  echo "==> release for ${TAG} exists (id ${existing_id}), replacing"
+  api DELETE "/${CNB_REPO_SLUG}/-/releases/${existing_id}" >/dev/null
 fi
 api POST "/${CNB_REPO_SLUG}/-/releases" "$BODY" >/dev/null
 
 if [ "$CHANNEL" = "nightly" ]; then
-	echo "==> pruning nightly releases, keeping ${NIGHTLY_KEEP}"
-	if [ "$DRY_RUN" = "1" ]; then
-		echo "[dry-run] node scripts/prune-nightly.mjs"
-	else
-		node scripts/prune-nightly.mjs
-	fi
+  echo "==> pruning nightly releases, keeping ${NIGHTLY_KEEP}"
+  if [ "$DRY_RUN" = "1" ]; then
+    echo "[dry-run] node scripts/prune-nightly.mjs"
+  else
+    node scripts/prune-nightly.mjs
+  fi
 fi
 echo "==> release ${TAG} ready"

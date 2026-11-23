@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Git 写操作防护",
-    "description": "在 bash、pwsh、run_code 与终端会话中阻止 agent 自行执行 git commit、push、tag、merge、rebase、reset 等写操作，只读 git 命令仍可用。"
+    "description": "在 bash、pwsh、run_code 与终端会话中阻止 agent 自行执行 git commit、push、tag、merge、rebase、reset 等写操作，只读 git 命令仍可用。",
+    "title": "Git 写操作防护"
   }
 }

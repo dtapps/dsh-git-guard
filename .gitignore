@@ -1,3 +1,14 @@
+# 开发工具
+.env
+.git
+.svn
+.idea
+.vscode
+.log
+.task
+.trae
+.codebuddy
+
 # Package artifacts
 node_modules/
 *.tgz
