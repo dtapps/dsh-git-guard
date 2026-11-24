@@ -4,9 +4,9 @@
 
 [![漏洞扫描](https://cnb.cool/dtapp/dsh-git-guard/-/badge/security/vulnerability/full/latest)](https://cnb.cool/dtapp/dsh-git-guard/-/security) [![CNB 版本](https://commit.cool/badge/release/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard/-/releases) [![NPM 拉取次数](https://commit.cool/badge/package/npm/pulls/dtapp/dsh)](https://npm.cnb.cool/dtapp/dsh/-/packages/) [![CNB 访问](https://commit.cool/badge/visit/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 星标](https://cnb.cool/dtapp/dsh-git-guard/-/badge/star)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 分叉](https://cnb.cool/dtapp/dsh-git-guard/-/badge/fork)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 仓库年龄](https://commit.cool/badge/age/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 主要语言](https://commit.cool/badge/language/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 许可证](https://commit.cool/badge/license/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 存储用量](https://commit.cool/badge/usage/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB Git 存储](https://commit.cool/badge/usage/git/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB LFS 存储](https://commit.cool/badge/usage/lfs/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard)
 
-## 安装到 DeepSeekHarness
-
 代码仓库：https://cnb.cool/dtapp/dsh-git-guard ；npm 包发布在 CNB 制品库 `https://npm.cnb.cool/dtapp/dsh/-/packages/`（包名 `@dtapp/dsh-git-guard`，公开可读，无需登录或 token）。
+
+## 安装到 DeepSeekHarness
 
 ### 前置：一次配置 scope 源（重要）
 

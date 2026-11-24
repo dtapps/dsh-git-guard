@@ -119,26 +119,9 @@ stages: &publish_stages
     script: |
       printf '%s:registry=%s\n' "$PUBLISH_SCOPE" "$PUBLISH_REGISTRY" > .npmrc
 
-  - name: 发布到制品库
-    image: tencentcom/npm
-    if: |
-      [ "$VERSION_EXISTS" != "true" ]
-    settings:
-      username: $CNB_TOKEN_USER_NAME
-      token: $CNB_TOKEN
-      email: $CNB_COMMITTER_EMAIL
-      registry: $PUBLISH_REGISTRY
-      folder: ./
-      tag: $DIST_TAG
-      access: public
-      # 同版本重跑不因制品库已有该版本而中断；tag / Release 已在上一步重建。
-      fail_on_version_conflict: false
-
   # Release 正文：README 的安装用法 + release-changelog.sh 生成的变更内容。
   - name: 生成 Release 正文
     image: node:26
-    if: |
-      [ "$VERSION_EXISTS" != "true" ]
     script: |
       REPO_URL="https://cnb.cool/${CNB_REPO_SLUG}"
       COMMIT_URL="${REPO_URL}/-/commit"
@@ -162,8 +145,6 @@ stages: &publish_stages
   # 官方插件：Release 已存在时默认删除后重建（overlying: false）。
   - name: 创建 Release
     type: git:release
-    if: |
-      [ "$VERSION_EXISTS" != "true" ]
     options:
       tag: $TAG
       title: $RELEASE_TITLE
@@ -176,11 +157,26 @@ stages: &publish_stages
   - name: 清理旧 nightly Release（保留 3 个）
     image: node:26
     if: |
-      [ "$VERSION_EXISTS" != "true" ] && [ "$CHANNEL" = "nightly" ]
+      [ "$CHANNEL" = "nightly" ]
     allowFailure: true
     script: |
       command -v jq >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq jq)
       sh scripts/ci/delete-release.sh --platform cnb --keep 3
+
+  # Release 已成功后再发布 npm；前面任一步失败都不会动制品库。
+  - name: 发布到制品库
+    image: tencentcom/npm
+    if: |
+      [ "$VERSION_EXISTS" != "true" ]
+    settings:
+      username: $CNB_TOKEN_USER_NAME
+      token: $CNB_TOKEN
+      email: $CNB_COMMITTER_EMAIL
+      registry: $PUBLISH_REGISTRY
+      folder: ./
+      tag: $DIST_TAG
+      access: public
+      fail_on_version_conflict: false
 
   # 发布后重建索引，用 Golang 镜像格式化，再创建 PR + 自动批准 + 合并。
   - name: 重建插件市场索引
