@@ -1,0 +1,223 @@
+# npm 公共源发布工作流：复制自 .github/workflows/publish.yml，只发 registry.npmjs.org。
+#
+# 为什么单独一份：npm 公共源的包名（@dtapp）、令牌、包内 README 都与 GitHub Packages
+# 不同，塞进同一个 job 要先改包名再改回来，容易发错源。
+#
+# 怎么被调用：publish.yml 的 release job 成功后，用 workflow_call 把这个 job 已经
+# **算好的版本号**传进来，所以两边版本一定一致。早先用 workflow_run + 从 tag 反推
+# 版本，同一个提交上存在多个 tag 时会取到错的那个（例如把 nightly 当成你填的正式版）。
+#
+# 只做「发到 npm」这一段：tag、Release、索引 PR 由 Release 工作流负责，这里重复
+# 它们只会和已存在的 tag / Release 抢。
+#
+# 发布前的同步顺序（与另外两个源一致）：
+#   1. 把 version 写进 package.json（同时改包名为 @dtapp/dsh-git-guard、仓库地址指向 GitHub）
+#   2. 用 README.npm.md 覆盖 README.md（npm 包页面展示的就是包内 README.md）
+#   3. npm publish
+#
+# 也可以手动 workflow_dispatch 补发，此时必须自己填 version。
+#
+# version 规则见 scripts/ci/resolve-version.sh。
+# npm 公共源不需要插件市场索引：DSH 默认就支持 npm 官方源。
+#
+# 认证（两条路径，npm 优先用 OIDC）：
+#   1. trusted publishing：本文件与调用方（publish.yml）都声明 id-token: write，
+#      无 token、免 2FA，并自动带 provenance。前提是包已存在，所以首版必须先用 token 发。
+#      npmjs 侧：包 → Settings → Trusted Publisher → GitHub Actions，填
+#      dtapps / dsh-git-guard / **publish.yml** ← 填调用方文件名，不是本文件！
+#      （npm 文档 troubleshooting 明确：workflow_call 时校验的是 calling workflow 的
+#      名字，且 parent 与 child 都要有 id-token: write）
+#      allowed action 要勾上「npm publish」；字段大小写敏感，保存时 npm 不校验，
+#      错了只会在发布时报 ENEEDAUTH。配好后 2 天内必须成功发布一次，否则作废。
+#      手动 workflow_dispatch 本文件时没有调用方，校验的是 publish-npm.yml 本身，
+#      要单独加一条 trusted publisher（或干脆用手动时的 NPM_TOKEN）。
+#   2. fallback：secrets.NPM_TOKEN，granular token，权限必须是
+#      read and write (publish and stage) + Bypass 2FA；stage-only 发不了正式版。
+#      2027-01 起 granular token 的直接发布能力将被移除，所以最终要删掉这个 secret。
+#
+# 发布方式：GitHub 没有官方 npm 发布 action，官方文档给的就是「setup-node 带
+# registry-url 写 .npmrc + npm publish」，所以这里也用这套；第三方 action
+# （JS-DevTools/npm-publish 等）只是把这行 shell 包一层，还要多背一个供应链依赖，
+# 而且表达不了下面「版本已存在就告警放过」的容错。
+#
+# https://github.com/actions/checkout
+# https://github.com/actions/setup-node
+name: Release Public NPM
+
+on:
+  # 由 publish.yml 的 release job 在成功后调用，版本号原样传进来。
+  workflow_call:
+    inputs:
+      version:
+        description: '要发布的版本（1.2.3 / 1.2.3-rc.1 / 1.2.3-nightly.20260101）'
+        required: true
+        type: string
+      commit:
+        description: '要发布的提交 SHA（留空用调用方提交）'
+        required: false
+        type: string
+        default: ''
+    secrets:
+      NPM_TOKEN:
+        required: false
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号：1.2.3 / 1.2.3-rc.1 / 1.2.3-nightly.20260101；填 nightly 自动展开'
+        required: true
+        type: string
+        default: nightly
+      commit:
+        description: '要发布的提交 SHA（留空用当前分支最新提交）'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  # trusted publishing（npm OIDC）必需：没有它 GitHub 不签发 OIDC token，
+  # npm 只能退回 NPM_TOKEN。只影响本工作流，不改仓库默认权限。
+  id-token: write
+
+# 发布目标统一在这里维护。注意不要叫 NPM_REGISTRY：
+# scripts/ci/resolve-version.sh 会用同名变量查基准版本，那必须继续指向 CNB 制品库。
+env:
+  NPMJS_NAME: '@dtapp/dsh-git-guard'
+  NPMJS_REGISTRY: https://registry.npmjs.org/
+
+concurrency:
+  group: release-npm-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish-npm:
+    runs-on: ubuntu-26.04
+    env:
+      # setup-node 会把 //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN} 写进 .npmrc。
+      # 这是过渡期的 fallback：npm 会优先用 OIDC（trusted publishing），失败才用 token。
+      # 包在 npmjs 侧绑好 trusted publisher 后，删掉 secrets.NPM_TOKEN 即彻底走 OIDC。
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.commit || github.sha }}
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '26'
+          # 发布源直接交给 setup-node 写进 .npmrc（等同 npm config set registry）。
+          registry-url: ${{ env.NPMJS_REGISTRY }}
+
+      # 版本号一律以调用方传入的为准（Release 算好的那个），不再从 tag 反推。
+      - name: 解析版本
+        id: version
+        shell: bash
+        env:
+          VERSION_INPUT: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          raw="${VERSION_INPUT:-}"
+          if [ -z "$raw" ]; then
+            echo "::error::缺少 version 输入；手动触发时请填写版本号"
+            exit 1
+          fi
+          echo "请求发布的版本：${raw}"
+          VERSION="$raw" bash scripts/ci/resolve-version.sh
+          while IFS='=' read -r key value; do
+            echo "${key}=${value}" >> "$GITHUB_OUTPUT"
+          done < .version.env
+
+      # 包版本已存在则跳过后续步骤（工作流保持成功）；npm 的版本不可覆盖。
+      - name: 检查 npm 版本是否已存在
+        id: version_exists
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          set -euo pipefail
+          set +e
+          npm view "${NPMJS_NAME}@${VERSION}" version --registry "$NPMJS_REGISTRY" >/dev/null 2>&1
+          rc=$?
+          set -e
+          if [ "$rc" -eq 0 ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 包版本已存在，跳过后续步骤
+        if: steps.version_exists.outputs.exists == 'true'
+        shell: bash
+        run: echo "::notice::npm 公共源已有该版本，跳过后续全部步骤"
+
+      - name: 插件逻辑自检
+        if: steps.version_exists.outputs.exists != 'true'
+        run: node test.mjs
+
+      # npm 公共源不限 scope，沿用 package.json 原包名 @dtapp；包内 README 用 npm 版。
+      # repository.url 必须指向本 GitHub 仓库，否则 npm 的 trusted publishing 校验不通过。
+      - name: 写入版本号、npm 包名、仓库地址与 README
+        if: steps.version_exists.outputs.exists != 'true'
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.VERSION }}
+          GITHUB_URL: https://github.com/${{ github.repository }}
+        run: |
+          set -euo pipefail
+          test -s README.npm.md || { echo "::error::README.npm.md 为空，npm 包页会没有 README"; exit 1; }
+          node -e "const fs=require('fs');const p=require('./package.json');p.version=process.env.PACKAGE_VERSION;p.name=process.env.NPMJS_NAME;p.repository={...p.repository,type:'git',url:process.env.GITHUB_URL};fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
+          cp README.npm.md README.md
+          test -s README.md || { echo "::error::README.md 覆盖后为空"; exit 1; }
+          echo "将要发布：$(node -p "require('./package.json').name + '@' + require('./package.json').version")"
+          echo "包内 README.md：$(wc -c < README.md) 字节"
+
+      # registry 与 _authToken 由 setup-node 写进 .npmrc，这里只负责发布与容错。
+      - name: 发布到 npm 公共源
+        if: steps.version_exists.outputs.exists != 'true'
+        shell: bash
+        env:
+          DIST_TAG: ${{ steps.version.outputs.DIST_TAG }}
+        run: |
+          set -euo pipefail
+          # 两条认证路径：OIDC（trusted publishing，优先）或 NPM_TOKEN（过渡期 fallback）。
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
+              echo "未配置 secrets.NPM_TOKEN，使用 npm trusted publishing（OIDC）"
+            else
+              echo "::error::既没有 secrets.NPM_TOKEN，也没有 OIDC（缺少 id-token: write），无法发布"
+              exit 1
+            fi
+          fi
+          set +e
+          out="$(npm publish --tag "$DIST_TAG" --registry "$NPMJS_REGISTRY" 2>&1)"
+          rc=$?
+          set -e
+          printf '%s\n' "$out"
+          if [ "$rc" -eq 0 ]; then
+            exit 0
+          fi
+          # 令牌被要求输入 OTP：CI 无法交互。granular token 需要在创建时勾选 Bypass 2FA
+          # （classic Automation token 已于 2025-11 移除）；长期方案是 trusted publishing。
+          if printf '%s' "$out" | grep -Eqi 'EOTP|one-time password'; then
+            echo "::error::NPM_TOKEN 被要求输入一次性密码（EOTP）：请重建 granular token 并勾选 Bypass 2FA，或改用 npm trusted publishing"
+            exit "$rc"
+          fi
+          # 令牌只有 stage-only 写权限时不能直接发布，只能 npm stage publish + 人工审批。
+          if printf '%s' "$out" | grep -q 'E_STAGE_REQUIRED'; then
+            echo "::error::NPM_TOKEN 是 stage-only 写权限：请改成 read and write (publish and stage)，否则只能走 npm stage publish"
+            exit "$rc"
+          fi
+          # 包名/scope 不存在（404）时，通常是 @dtapp 这个 scope 不归当前账号所有。
+          if printf '%s' "$out" | grep -Eqi 'E404|scope not found|not found'; then
+            echo "::error::发布被拒（404）：请确认 npmjs 上 @dtapp scope 属于该 token 的账号/组织，且 token 有该 scope 的写权限"
+            exit "$rc"
+          fi
+          # 并发或补发时可能被别人先发掉了；沿用已发布版本，工作流保持成功。
+          if printf '%s' "$out" | grep -Eqi 'previously published|already exists|existing version|409 conflict|E409'; then
+            echo "::warning::npm 公共源已存在该版本，npm 不支持覆盖，沿用已发布版本"
+            exit 0
+          fi
+          exit "$rc"

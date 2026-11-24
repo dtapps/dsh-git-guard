@@ -6,6 +6,8 @@
 
 代码仓库：https://github.com/dtapps/dsh-git-guard ；npm 包发布在 GitHub Packages `https://npm.pkg.github.com`（包名 `@dtapps/dsh-git-guard`，需要 token 才能拉取）。
 
+同名包也发布在 npm 公共源（`@dtapp/dsh-git-guard`，无需 token），安装方式见 [README.npm.md](README.npm.md)；本页安装步骤针对 GitHub Packages。
+
 ## 安装到 DeepSeekHarness
 
 ### 前置一：准备 GitHub token
@@ -27,6 +29,24 @@
 ```
 
 只有写进 profile `.npmrc` 的 `@dtapps:registry` 和 `_authToken` 会让 pnpm 在更新与 lockfile 供应链校验时也回源到 GitHub Packages。若 `~/.npmrc` 或 profile `.npmrc` 里已有指向别处的 `@dtapps:registry`，先改掉。
+
+### 安装：把插件装进 profile
+
+token 与 `.npmrc` 配好后，在终端执行（`--profile` 后面换成你的 profile 名，如 `web`、`desktop`）：
+
+```bash
+dsh plugin --profile 你的profile名 add @dtapps/dsh-git-guard
+```
+
+这条命令把参数原样转发给该 profile 目录里的 pnpm，等价于在 `$DSH_HOME/profiles/你的profile名` 下执行 `pnpm add @dtapps/dsh-git-guard`，依赖和 lockfile 都记在 profile 里。装完重启该 profile（`dsh 你的profile名`），guard 即对整个 Harness 生效。
+
+卸载：
+
+```bash
+dsh plugin --profile 你的profile名 remove @dtapps/dsh-git-guard
+```
+
+也可以不敲命令：按下一节添加索引源后，在 `插件 → 发现` 里搜索 `@dtapps/dsh-git-guard` 点击安装。
 
 ### 插件市场索引源（可在发现页搜索）
 

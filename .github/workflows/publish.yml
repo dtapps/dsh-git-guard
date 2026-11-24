@@ -10,10 +10,13 @@
 # @dtapps/dsh-git-guard；CNB 制品库仍用 package.json 原有的 @dtapp/dsh-git-guard。
 # 令牌用 secrets.GITHUB_TOKEN（需 packages: write）。
 #
+# npm 公共源（registry.npmjs.org）不在这里发：复制出来的 publish-npm.yml 用
+# workflow_run 等这条工作流成功后，再把同一版本发到 npm 公共源。
+#
 # https://github.com/actions/checkout
 # https://github.com/actions/setup-node
 # https://github.com/softprops/action-gh-release
-name: Release
+name: Release Package
 
 on:
   schedule:
@@ -35,6 +38,9 @@ permissions:
   contents: write
   packages: write
   pull-requests: write
+  # npm trusted publishing（OIDC）要求「调用方 + 被调用方」都给 id-token: write；
+  # 这里给工作流级兜底，实际只用在下面对 publish-npm 的调用上。
+  id-token: write
 
 # 发布目标统一在这里维护。注意不要叫 NPM_REGISTRY：
 # scripts/ci/resolve-version.sh 会用同名变量查基准版本，那必须继续指向 CNB 制品库。
@@ -49,7 +55,12 @@ concurrency:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
+    # 解析出的版本号传给下面的 publish-npm（workflow_call），保证两边发的是同一个版本。
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+      dist_tag: ${{ steps.version.outputs.DIST_TAG }}
+      exists: ${{ steps.version_exists.outputs.exists }}
     env:
       VERSION: ${{ github.event_name == 'schedule' && 'nightly' || inputs.version }}
       NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -255,3 +266,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_APPROVE_TOKEN: ${{ secrets.PR_APPROVE_TOKEN }}
         run: node scripts/ci/update-index-pr.mjs --platform=github --skip-build
+
+  # 复制出来的 npm 公共源工作流：Release 跑完后，把上面算好的版本号原样传进去。
+  # 用 workflow_call 而不是 workflow_run，是为了避免重新猜版本（tag 反推会取错）。
+  publish-npm:
+    needs: release
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/publish-npm.yml
+    with:
+      version: ${{ needs.release.outputs.version }}
+      commit: ${{ inputs.commit || github.sha }}
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

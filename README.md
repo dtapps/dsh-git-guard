@@ -6,11 +6,13 @@
 
 代码仓库：https://cnb.cool/dtapp/dsh-git-guard ；npm 包发布在 CNB 制品库 `https://npm.cnb.cool/dtapp/dsh/-/packages/`（包名 `@dtapp/dsh-git-guard`，公开可读，无需登录或 token）。
 
+同名包也发布在 npm 公共源，安装方式见 [README.npm.md](README.npm.md)；本页安装步骤针对 CNB 制品库。
+
 ## 安装到 DeepSeekHarness
 
 ### 前置：一次配置 scope 源（重要）
 
-`@dtapp/dsh-git-guard` **不在** npmjs / npmmirror。profile 的 pnpm 默认源若是 npmmirror，安装与依赖校验都会去那里找这个包，报 `ERR_PNPM_FETCH_404` / `Lockfile failed supply-chain policy check`。这是 pnpm 校验 lockfile 时按包名回源取证，不是网络故障，也不是需要登录。
+本页索引与发布都指向 CNB 制品库。同名包虽然也在 npm 公共源发布，但 npmmirror 等镜像同步有延迟，profile 的 pnpm 默认源若是 npmmirror，安装与依赖校验可能取不到这个包或取到旧版本，报 `ERR_PNPM_FETCH_404` / `Lockfile failed supply-chain policy check`。这是 pnpm 校验 lockfile 时按包名回源取证，不是网络故障，也不是需要登录。
 
 最稳的做法是在 profile 的 `.npmrc` 里给 `@dtapp` scope 指定 CNB 地址（只影响本 scope，不动其他依赖）：
 
@@ -21,6 +23,24 @@
 文件位置：`$DSH_HOME/profiles/你的profile名/.npmrc`（如 `web`、`desktop`）。不想手写可运行仓库里的辅助脚本，见「辅助脚本」一节。scope 映射对发现页点击安装和 lockfile 供应链校验都生效。手动加过索引源的 profile 也建议补上这一行。
 
 注意：`.npmrc` 里的 `registry=` 是全局默认源；只有 `@dtapp:registry=` 会让 pnpm 在校验/更新时也把 `@dtapp` 包指向 CNB。若 `~/.npmrc` 或 profile `.npmrc` 里已有指向别处的 `@dtapp:registry`，先改正或删掉那一行（`npm config get @dtapp:registry` 可检查）。
+
+### 安装：把插件装进 profile
+
+配好上面的 scope 后，在终端执行（`--profile` 后面换成你的 profile 名，如 `web`、`desktop`）：
+
+```bash
+dsh plugin --profile 你的profile名 add @dtapp/dsh-git-guard
+```
+
+这条命令把参数原样转发给该 profile 目录里的 pnpm，等价于在 `$DSH_HOME/profiles/你的profile名` 下执行 `pnpm add @dtapp/dsh-git-guard`，依赖和 lockfile 都记在 profile 里。装完重启该 profile（`dsh 你的profile名`），guard 即对整个 Harness 生效。
+
+卸载：
+
+```bash
+dsh plugin --profile 你的profile名 remove @dtapp/dsh-git-guard
+```
+
+也可以不敲命令：按下一节添加索引源后，在 `插件 → 发现` 里搜索 `@dtapp/dsh-git-guard` 点击安装。
 
 ### 插件市场索引源（可在发现页搜索）
 
