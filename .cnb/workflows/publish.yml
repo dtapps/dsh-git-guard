@@ -182,16 +182,22 @@ stages: &publish_stages
       command -v jq >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq jq)
       sh scripts/ci/delete-release.sh --platform cnb --keep 3
 
-  # 派活给 NPC 重建插件市场索引源：固定 Issue + @dtapp/dsh-git-guard(索引更新员)，
-  # 失败只告警，不影响已成功的发布。NPC_ENABLED=false 时整段不执行（不触发 NPC）。
-  - name: 请求 NPC 更新索引源
-    image: cnbcool/cnb-cli
-    # NPC_ENABLED=false 时整段不执行（不触发 NPC）；变量由 pipeline 层 imports 提供。
+  # 发布后重建索引并直接创建 PR + 自动批准 + 合并，不依赖 index-pr.yml。
+  - name: 创建索引更新 PR 并自动批准
+    image: node:26
     if: |
-      [ "$VERSION_EXISTS" != "true" ] && [ "$NPC_ENABLED" = "true" ]
+      [ "$VERSION_EXISTS" != "true" ]
+    allowFailure: true
+    script: node scripts/ci/update-index-pr.mjs --platform=cnb
+
+  - name: 合并索引更新 PR
+    image: cnbcool/cnb-cli
+    if: |
+      [ -f .index-pr-number ]
     allowFailure: true
     script: |
-      sh .cnb/scripts/request-index-update.sh "$VERSION"
+      PR_NUMBER="$(cat .index-pr-number)"
+      cnb pulls merge-pull --repo "$CNB_REPO_SLUG" --number "$PR_NUMBER" --merge-style squash
 
 main:
   # 每天 00:00 定时构建 nightly；手动则由表单的 version 覆盖。

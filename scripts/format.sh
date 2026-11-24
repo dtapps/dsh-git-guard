@@ -82,7 +82,7 @@ YAML_EXCLUDES=(
 JSONFMT_ARGS=(.)
 JSON_TARGETS=(
   "locale/"
-  # "market/"
+  "market/"
   "package.json"
 )
 JSON_GLOB="*.json"
