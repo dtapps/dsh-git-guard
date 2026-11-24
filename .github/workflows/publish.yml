@@ -163,6 +163,7 @@ jobs:
 
       # Release 正文：README 的安装用法 + release-changelog.sh 生成的变更内容。
       - name: 生成 Release 正文
+        if: steps.version_exists.outputs.exists != 'true'
         shell: bash
         env:
           TAG: ${{ steps.version.outputs.TAG }}
@@ -180,6 +181,7 @@ jobs:
           } > release_body.md
 
       - name: 创建 Release
+        if: steps.version_exists.outputs.exists != 'true'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.TAG }}
@@ -190,7 +192,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 清理旧 nightly Release（保留 3 个）
-        if: steps.version.outputs.CHANNEL == 'nightly'
+        if: steps.version_exists.outputs.exists != 'true' && steps.version.outputs.CHANNEL == 'nightly'
         continue-on-error: true
         shell: bash
         env:

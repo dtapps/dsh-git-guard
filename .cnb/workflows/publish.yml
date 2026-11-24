@@ -65,6 +65,7 @@ stages: &publish_stages
           .catch(() => process.stdout.write("false"));
       ')"
       echo "$EXISTS"
+      echo "##[set-output EXISTS=${EXISTS}]"
     exports:
       VERSION_EXISTS: EXISTS
 
@@ -122,6 +123,8 @@ stages: &publish_stages
   # Release 正文：README 的安装用法 + release-changelog.sh 生成的变更内容。
   - name: 生成 Release 正文
     image: node:26
+    if: |
+      [ "$VERSION_EXISTS" != "true" ]
     script: |
       REPO_URL="https://cnb.cool/${CNB_REPO_SLUG}"
       COMMIT_URL="${REPO_URL}/-/commit"
@@ -129,6 +132,8 @@ stages: &publish_stages
       RELEASE_TITLE="${PKG_NAME} ${TAG}"
       if [ "$PRERELEASE" = "false" ]; then MAKE_LATEST=true; else MAKE_LATEST=false; fi
       export COMMIT_URL REPO_URL RELEASE_TITLE MAKE_LATEST
+      echo "##[set-output RELEASE_TITLE=${RELEASE_TITLE}]"
+      echo "##[set-output MAKE_LATEST=${MAKE_LATEST}]"
       {
         echo "## 安装"
         echo
@@ -145,6 +150,8 @@ stages: &publish_stages
   # 官方插件：Release 已存在时默认删除后重建（overlying: false）。
   - name: 创建 Release
     type: git:release
+    if: |
+      [ "$VERSION_EXISTS" != "true" ]
     options:
       tag: $TAG
       title: $RELEASE_TITLE
@@ -157,7 +164,7 @@ stages: &publish_stages
   - name: 清理旧 nightly Release（保留 3 个）
     image: node:26
     if: |
-      [ "$CHANNEL" = "nightly" ]
+      [ "$VERSION_EXISTS" != "true" ] && [ "$CHANNEL" = "nightly" ]
     allowFailure: true
     script: |
       command -v jq >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq jq)
@@ -193,21 +200,37 @@ stages: &publish_stages
     allowFailure: true
     script: make format
 
-  - name: 创建索引更新 PR 并自动批准
+  - name: 准备索引更新分支
     image: node:26
     if: |
       [ "$VERSION_EXISTS" != "true" ]
     allowFailure: true
-    script: node scripts/ci/update-index-pr.mjs --platform=cnb --skip-build
-
-  - name: 合并索引更新 PR
-    image: cnbcool/cnb-cli
-    if: |
-      [ -f .index-pr-number ]
-    allowFailure: true
     script: |
-      PR_NUMBER="$(cat .index-pr-number)"
-      cnb pulls merge-pull --repo "$CNB_REPO_SLUG" --number "$PR_NUMBER" --merge-style squash
+      node scripts/ci/update-index-pr.mjs --platform=cnb --prepare-only
+      if [ -f .index-pr-branch ]; then
+        INDEX_BRANCH="$(cat .index-pr-branch)"
+        echo "##[set-output INDEX_BRANCH=${INDEX_BRANCH}]"
+      fi
+    exports:
+      INDEX_BRANCH: INDEX_BRANCH
+
+  - name: 创建索引更新 PR
+    image: cnbcool/create-pr:latest
+    if: |
+      [ -n "$INDEX_BRANCH" ]
+    settings:
+      target_branch: main
+      head_branch: $INDEX_BRANCH
+      title: 'chore: 更新插件市场索引源到 $VERSION'
+      body: |
+        发布 $VERSION 后自动重建插件市场索引。
+
+  - name: 批准索引更新 PR
+    image: node:26
+    if: |
+      [ -n "$INDEX_BRANCH" ]
+    allowFailure: true
+    script: node scripts/ci/update-index-pr.mjs --platform=cnb --approve-only
 
 main:
   # 每天 00:00 定时构建 nightly；手动则由表单的 version 覆盖。
@@ -230,3 +253,14 @@ main:
         PUBLISH_REGISTRY: https://npm.cnb.cool/dtapp/dsh/-/packages/
       imports: https://cnb.cool/dtapp/envs/-/blob/main/npc.yml
       stages: *publish_stages
+  # 索引 PR 评审通过后，用官方内置任务自动 squash 合并并删除源分支。
+  pull_request.mergeable:
+    - name: 自动合并索引更新 PR
+      ifModify:
+        - market/index.json
+      stages:
+        - name: 自动合并
+          type: git:auto-merge
+          options:
+            mergeType: squash
+            removeSourceBranch: true

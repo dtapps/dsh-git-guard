@@ -15,7 +15,7 @@
  *   - push 临时分支
  *   - POST /{repo}/-/pulls 创建 PR
  *   - POST /{repo}/-/pulls/{number}/reviews 自动 APPROVE
- *   - 把 PR 编号写入 .index-pr-number，由后续 cnb CLI 阶段合并
+ *   - 合并由 publish.yml 的官方 git:auto-merge 在 pull_request.mergeable 时完成
  * GitHub：
  *   - 重建 market/index.github.json（GitHub Packages）
  *   - push 临时分支
@@ -45,6 +45,36 @@ function fail(message) {
 	process.exit(1);
 }
 
+async function approveCnb(prTitle) {
+	const api = (process.env.CNB_API_ENDPOINT ?? "https://api.cnb.cool").replace(/\/+$/, "");
+	const repo = process.env.CNB_REPO_SLUG;
+	const token = process.env.CNB_TOKEN;
+	if (!repo || !token) fail("CNB_REPO_SLUG and CNB_TOKEN are required");
+
+	const headers = {
+		accept: "application/vnd.cnb.api+json",
+		authorization: `Bearer ${token}`,
+		"content-type": "application/json",
+	};
+	const listed = await fetch(`${api}/${repo}/-/pulls?per_page=100`, { headers });
+	if (!listed.ok) fail(`list PRs failed: HTTP ${listed.status} ${await listed.text()}`);
+	const data = await listed.json();
+	const pulls = Array.isArray(data) ? data : (data.pulls ?? data.items ?? data.data ?? []);
+	const matches = pulls.filter((pull) => pull?.title === prTitle);
+	if (matches.length === 0) fail(`cannot find open PR titled: ${prTitle}`);
+	matches.sort((a, b) => (Number(b.number ?? b.iid ?? b.id) || 0) - (Number(a.number ?? a.iid ?? a.id) || 0));
+	const number = matches[0].number ?? matches[0].iid ?? matches[0].id;
+	if (number === undefined) fail(`PR response missing number: ${JSON.stringify(matches[0])}`);
+
+	const reviewed = await fetch(`${api}/${repo}/-/pulls/${number}/reviews`, {
+		method: "POST",
+		headers,
+		body: JSON.stringify({ event: "APPROVE", body: "索引结构、自检与 registry 一致性校验通过，自动批准。" }),
+	});
+	if (!reviewed.ok) fail(`approve PR failed: HTTP ${reviewed.status} ${await reviewed.text()}`);
+	console.log(`update-index-pr: 已批准 CNB PR #${number}`);
+}
+
 const platform = arg("platform");
 if (platform !== "cnb" && platform !== "github") {
 	fail("--platform must be cnb or github");
@@ -66,6 +96,15 @@ const body = [
 
 const buildOnly = process.argv.includes("--build-only");
 const skipBuild = process.argv.includes("--skip-build");
+const prepareOnly = process.argv.includes("--prepare-only");
+const approveOnly = process.argv.includes("--approve-only");
+
+if (approveOnly) {
+	if (platform !== "cnb") fail("--approve-only only supports cnb");
+	await approveCnb(title);
+	process.exit(0);
+}
+
 if (!skipBuild) {
 	if (platform === "cnb") {
 		run(process.execPath, ["market/build-index.mjs"]);
@@ -98,6 +137,12 @@ run("git", ["add", indexFile]);
 run("git", ["commit", "-m", title]);
 run("git", ["push", "origin", `HEAD:refs/heads/${branch}`]);
 
+if (prepareOnly) {
+	await writeFile(".index-pr-branch", `${branch}\n`, "utf8");
+	console.log(`update-index-pr: 已推送索引分支 ${branch}`);
+	process.exit(0);
+}
+
 if (platform === "cnb") {
 	const api = (process.env.CNB_API_ENDPOINT ?? "https://api.cnb.cool").replace(/\/+$/, "");
 	const repo = process.env.CNB_REPO_SLUG;
@@ -125,7 +170,6 @@ if (platform === "cnb") {
 		body: JSON.stringify({ event: "APPROVE", body: "索引结构、自检与 registry 一致性校验通过，自动批准。" }),
 	});
 	if (!reviewed.ok) fail(`approve PR failed: HTTP ${reviewed.status} ${await reviewed.text()}`);
-	await writeFile(".index-pr-number", `${number}\n`, "utf8");
 	console.log(`update-index-pr: 已创建并批准 CNB PR #${number}`);
 } else {
 	const ghToken = process.env.GITHUB_TOKEN;

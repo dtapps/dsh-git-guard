@@ -61,13 +61,47 @@ format: format-yaml format-json format-sql format-markdown format-docker format-
 #####################
 
 # 按 GIT_REMOTE 顺序先全部拉取合并，再统一推送（保留本地未提交改动）
+# 合并策略：能快进则快进；某远程与本地已分叉时自动改用 merge --no-ff 生成合并提交
+# （分叉场景典型来源：某个远程上被 squash-merge 过 PR，历史与本地不同源）
+# 脏工作区：统一用 merge --autostash，合并前自动 stash、合并后还原，
+#           避免 "local changes would be overwritten by merge" 直接把整个流程中止
 .PHONY: sync
 sync:
-	@IFS=,; for r in $$GIT_REMOTE; do \
-		git fetch "$$r" && git merge --ff-only "$$r/main" || exit 1; \
-	done
-	@IFS=,; for r in $$GIT_REMOTE; do git push "$$r" HEAD || exit 1; done
-	@echo "同步完成！"
+	@branch="$$(git rev-parse --abbrev-ref HEAD)"; \
+	if [ "$$branch" = "HEAD" ]; then echo "✗ 当前处于 detached HEAD，请先切回分支"; exit 1; fi; \
+	remotes="$$(printf '%s' "$$GIT_REMOTE" | tr -d ' \r' | tr ',' ' ')"; \
+	if [ -z "$$remotes" ]; then echo "✗ GIT_REMOTE 为空"; exit 1; fi; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "ℹ 检测到未提交改动，合并前会自动 stash、合并后还原（暂存状态会变成未暂存）："; \
+		git status --porcelain | sed 's/^/    /'; \
+	fi; \
+	for r in $$remotes; do \
+		echo "→ [$$r] fetch"; \
+		git fetch "$$r" || exit 1; \
+		if ! git rev-parse --verify -q "refs/remotes/$$r/$$branch" >/dev/null; then \
+			echo "  $$r 上没有 $$branch 分支，跳过合并"; continue; \
+		fi; \
+		if git merge-base --is-ancestor "$$r/$$branch" HEAD; then \
+			echo "  $$r/$$branch 可快进/已包含，执行 merge --ff-only"; \
+			git merge --ff-only --autostash "$$r/$$branch" || exit 1; \
+		else \
+			echo "  ⚠ $$r/$$branch 与本地分叉，改用 merge --no-ff"; \
+			git merge --no-ff --no-edit --autostash "$$r/$$branch" || { \
+				echo "✗ 合并失败（多为真实内容冲突）"; \
+				if git rev-parse -q --verify MERGE_HEAD >/dev/null; then \
+					git merge --abort; echo "  已回滚本次合并，本地改动已从 autostash 还原"; \
+				else \
+					echo "  合并没有真正开始（未产生 MERGE_HEAD），无需回滚"; \
+				fi; \
+				exit 1; \
+			}; \
+		fi; \
+	done; \
+	for r in $$remotes; do \
+		echo "→ [$$r] push"; \
+		git push "$$r" HEAD || exit 1; \
+	done; \
+	echo "同步完成！"
 
 # 推送到所有远程仓库
 .PHONY: push

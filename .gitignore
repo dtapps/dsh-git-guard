@@ -16,3 +16,6 @@ node_modules/
 # OS noise
 .DS_Store
 Thumbs.db
+
+# Ai
+AGENTS.md

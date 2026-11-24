@@ -1,5 +1,4 @@
 include:
-  # - .cnb/workflows/index-pr.yml
   - .cnb/workflows/publish.yml
   - .cnb/workflows/push.yml
   - https://cnb.cool/dtapp/ci-templates/-/blob/main/cnb-sechook.yml
