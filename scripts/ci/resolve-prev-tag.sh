@@ -126,6 +126,15 @@ if [ -n "${base}" ]; then
   exit 0
 fi
 
+# 该渠道还没有任何可比的 tag（例如首个正式版，仓库里只有 nightly tag）
+# → 按首次发布处理，stdout 留空，由 release-changelog.sh 输出「首次发布」。
+if [ -z "${same_channel}" ] && [ "${channel}" = 'stable' ]; then
+  exit 0
+fi
+if [ -z "${same_channel}" ] && [ -z "${stable_tags:-}" ]; then
+  exit 0
+fi
+
 # 排掉「当前版本自己」之后还剩几个 tag
 others="$(printf '%s\n' "${all_tags}" | sed '/^$/d' | grep -vxF "${version}" || true)"
 if [ -z "${others}" ]; then

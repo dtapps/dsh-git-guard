@@ -6,6 +6,10 @@
  *   node scripts/ci/update-index-pr.mjs --platform=cnb
  *   node scripts/ci/update-index-pr.mjs --platform=github
  *
+ * 分步执行（发布流水线在两步之间用 Golang 镜像跑 make format）：
+ *   node scripts/ci/update-index-pr.mjs --platform=cnb --build-only
+ *   node scripts/ci/update-index-pr.mjs --platform=cnb --skip-build
+ *
  * CNB：
  *   - 重建 market/index.json（CNB 制品库）
  *   - push 临时分支
@@ -60,17 +64,25 @@ const body = [
 	`- 版本：\`${version}\``,
 ].join("\n");
 
-if (platform === "cnb") {
-	run(process.execPath, ["market/build-index.mjs"]);
-} else {
-	if (!process.env.PUBLISH_NAME) fail("PUBLISH_NAME is required");
-	run(process.execPath, [
-		"market/build-index.mjs",
-		"--registry=https://npm.pkg.github.com",
-		`--name=${process.env.PUBLISH_NAME}`,
-		`--repository=https://github.com/${process.env.GITHUB_REPOSITORY}`,
-		`--out=${indexFile}`,
-	]);
+const buildOnly = process.argv.includes("--build-only");
+const skipBuild = process.argv.includes("--skip-build");
+if (!skipBuild) {
+	if (platform === "cnb") {
+		run(process.execPath, ["market/build-index.mjs"]);
+	} else {
+		if (!process.env.PUBLISH_NAME) fail("PUBLISH_NAME is required");
+		run(process.execPath, [
+			"market/build-index.mjs",
+			"--registry=https://npm.pkg.github.com",
+			`--name=${process.env.PUBLISH_NAME}`,
+			`--repository=https://github.com/${process.env.GITHUB_REPOSITORY}`,
+			`--out=${indexFile}`,
+		]);
+	}
+	if (buildOnly) {
+		console.log(`update-index-pr: 已重建 ${indexFile}`);
+		process.exit(0);
+	}
 }
 
 const changed = run("git", ["status", "--porcelain", "--", indexFile], { stdio: ["ignore", "pipe", "inherit"] }).trim();

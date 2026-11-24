@@ -96,13 +96,13 @@ stages: &publish_stages
     script: bash scripts/ci/nightly-tag.sh
 
   # CNB 发布内容里的 raw 链接固定到当前 tag，避免用户看到 /main/ 的漂移内容。
-  - name: 把 README 里的 CNB main 链接改成当前版本
-    image: node:26
-    if: |
-      [ "$VERSION_EXISTS" != "true" ]
-    script: |
-      sed -i.bak "s|/-/git/raw/main/|/-/git/raw/${TAG}/|g" README.md
-      rm -f README.md.bak
+  # - name: 把 README 里的 CNB main 链接改成当前版本
+  #   image: node:26
+  #   if: |
+  #     [ "$VERSION_EXISTS" != "true" ]
+  #   script: |
+  #     sed -i.bak "s|/-/git/raw/main/|/-/git/raw/${TAG}/|g" README.md
+  #     rm -f README.md.bak
 
   - name: 写入版本号与包名到 package.json
     image: node:26
@@ -182,13 +182,27 @@ stages: &publish_stages
       command -v jq >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq jq)
       sh scripts/ci/delete-release.sh --platform cnb --keep 3
 
-  # 发布后重建索引并直接创建 PR + 自动批准 + 合并，不依赖 index-pr.yml。
+  # 发布后重建索引，用 Golang 镜像格式化，再创建 PR + 自动批准 + 合并。
+  - name: 重建插件市场索引
+    image: node:26
+    if: |
+      [ "$VERSION_EXISTS" != "true" ]
+    allowFailure: true
+    script: node scripts/ci/update-index-pr.mjs --platform=cnb --build-only
+
+  - name: 格式化索引
+    image: docker.cnb.cool/dtapp/golang
+    if: |
+      [ "$VERSION_EXISTS" != "true" ]
+    allowFailure: true
+    script: make format
+
   - name: 创建索引更新 PR 并自动批准
     image: node:26
     if: |
       [ "$VERSION_EXISTS" != "true" ]
     allowFailure: true
-    script: node scripts/ci/update-index-pr.mjs --platform=cnb
+    script: node scripts/ci/update-index-pr.mjs --platform=cnb --skip-build
 
   - name: 合并索引更新 PR
     image: cnbcool/cnb-cli

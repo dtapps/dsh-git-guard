@@ -146,14 +146,14 @@ jobs:
 
       # GitHub Packages 上的包内 README 用 GitHub 版；仓库里的 README.md 不变。
       # GitHub 发布内容里的 raw 链接固定到当前 tag，避免用户看到 /main/ 的漂移内容。
-      - name: 把 README 里的 GitHub main 链接改成当前版本
-        if: steps.version_exists.outputs.exists != 'true'
-        shell: bash
-        env:
-          TAG: ${{ steps.version.outputs.TAG }}
-        run: |
-          sed -i.bak "s|raw.githubusercontent.com/dtapps/dsh-git-guard/main/|raw.githubusercontent.com/dtapps/dsh-git-guard/${TAG}/|g" README.github.md
-          rm -f README.github.md.bak
+      # - name: 把 README 里的 GitHub main 链接改成当前版本
+      #   if: steps.version_exists.outputs.exists != 'true'
+      #   shell: bash
+      #   env:
+      #     TAG: ${{ steps.version.outputs.TAG }}
+      #   run: |
+      #     sed -i.bak "s|raw.githubusercontent.com/dtapps/dsh-git-guard/main/|raw.githubusercontent.com/dtapps/dsh-git-guard/${TAG}/|g" README.github.md
+      #     rm -f README.github.md.bak
 
       - name: 使用 README.github.md 覆盖 README.md
         if: steps.version_exists.outputs.exists != 'true'
@@ -219,7 +219,28 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: sh scripts/ci/delete-release.sh --platform github --keep 3
 
-      # 发布后重建索引并直接创建 PR + 自动批准 + 合并。
+      # 发布后重建索引，用 Golang 镜像格式化，再创建 PR + 自动批准 + 合并。
+      - name: 重建插件市场索引
+        if: steps.version_exists.outputs.exists != 'true'
+        continue-on-error: true
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/ci/update-index-pr.mjs --platform=github --build-only
+
+      - name: 格式化索引
+        if: steps.version_exists.outputs.exists != 'true'
+        continue-on-error: true
+        shell: bash
+        run: |
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            ghcr.io/dtapps/golang \
+            make format
+
       - name: 创建索引更新 PR 并自动批准
         if: steps.version_exists.outputs.exists != 'true'
         continue-on-error: true
@@ -227,4 +248,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_APPROVE_TOKEN: ${{ secrets.PR_APPROVE_TOKEN }}
-        run: node scripts/ci/update-index-pr.mjs --platform=github
+        run: node scripts/ci/update-index-pr.mjs --platform=github --skip-build
