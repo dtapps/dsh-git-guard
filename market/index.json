@@ -46,12 +46,12 @@
       "versions": [
         {
           "engines": {},
-          "publishTimestamp": 1795478474,
+          "publishTimestamp": 1795493146,
           "source": {
             "registry": "https://npm.cnb.cool/dtapp/dsh/-/packages/",
             "type": "npm"
           },
-          "version": "1.0.5-nightly.20261124"
+          "version": "1.0.5"
         },
         {
           "engines": {},
