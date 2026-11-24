@@ -1,7 +1,7 @@
 include:
   - .cnb/workflows/index-pr.yml
+  - .cnb/workflows/publish.yml
   - .cnb/workflows/push.yml
-  - .cnb/workflows/release.yml
   - https://cnb.cool/dtapp/ci-templates/-/blob/main/cnb-sechook.yml
   - https://cnb.cool/dtapp/ci-templates/-/blob/main/code-review.yml
   - https://cnb.cool/dtapp/ci-templates/-/blob/main/code-security-config.yml

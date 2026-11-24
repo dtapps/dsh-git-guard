@@ -180,9 +180,13 @@ TAG="v${VERSION}"
 # CNB `exports` maps job-result keys to env vars; result keys are produced only
 # by `##[set-output key=value]` lines on stdout. Without these, downstream
 # stages (tag-nightly / publish / release) receive empty VERSION/TAG/....
-for key in VERSION TAG CHANNEL DIST_TAG PRERELEASE; do
-  echo "##[set-output ${key}=${!key}]"
-done
+# GitHub Actions 会把这种格式当成自家已废弃的 set-output 命令解析并报错，
+# 而它从 .version.env 写入 $GITHUB_OUTPUT 的逻辑在发布工作流里，故这里跳过。
+if [ "${GITHUB_ACTIONS:-}" != "true" ]; then
+  for key in VERSION TAG CHANNEL DIST_TAG PRERELEASE; do
+    echo "##[set-output ${key}=${!key}]"
+  done
+fi
 
 msg resolved "$VERSION" "$TAG" "$CHANNEL" "$DIST_TAG" "$PRERELEASE"
 cat "$OUTPUT_FILE"

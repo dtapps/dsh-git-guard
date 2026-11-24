@@ -1,4 +1,5 @@
 # 发布工作流：与 CNB 的 .cnb/workflows/release.yml 对齐。
+# 文件名用 publish.yml，避免与旧 release.yml 的 GitHub 缓存状态冲突。
 # 纯 Node 插件，没有 Go / Wails 构建步骤。两种触发共用同一套步骤：
 #   * 每天 00:00 定时发 nightly（VERSION=nightly 自动展开为 <最新正式版+1补丁>-nightly.<日期>）
 #   * workflow_dispatch 手动填 version（semver 或 nightly）与 commit（留空用触发分支 HEAD）
