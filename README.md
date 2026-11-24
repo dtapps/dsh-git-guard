@@ -162,19 +162,19 @@ node test.mjs   # 44 条应拦截 / 26 条应放行
 
 **只有两种触发方式，共用同一条流水线**（`.cnb.yml` 里 stages 只写一次，两个触发引用同一份 `&stages` 锚点）：
 
-- **定时**（`crontab`）：每天 UTC 00:00（平台时区 Asia/Shanghai 的 08:00）自动跑，固定 `VERSION=nightly`。
+- **定时**（`crontab`）：每天 00:00 自动跑，固定 `VERSION=nightly`。
 - **手动**（`web_trigger_nightly`）：在分支详情页点「发布 npm」按钮，表单填两个入参 `version`（必填，semver 或 `nightly`，默认 `nightly`）与 `commit`（选填，留空用分支 HEAD）。 按钮定义在 `.cnb/web_trigger.yml`。
 
-两种方式的步骤完全一致：切换到指定提交（定时/留空则用 HEAD）→ 解析版本 → 自检 → 创建 nightly 标签 → 发布到制品库 → 创建 Release。本项目零依赖（`test.mjs` 是纯 Node），无需装依赖，直接用 `node:26` 镜像自带的 node/npm。发布用 `tencentcom/npm` 插件，token 取内置的 `$CNB_TOKEN`，无需自管 `.npmrc`。
+两种方式的步骤完全一致：切换到指定提交（定时/留空则用 HEAD）→ 解析版本 → 自检 → 创建 nightly 标签 → 发布到制品库 → 创建 Release → 清理旧 nightly Release（保留 3 个）。本项目零依赖（`test.mjs` 是纯 Node），无需装依赖，直接用 `node:26` 镜像自带的 node/npm。发布用 `tencentcom/npm` 插件，token 取内置的 `$CNB_TOKEN`，无需自管 `.npmrc`。
 
 **脚本职责**：
 
 | 脚本                                   | 职责                                                                    |
 |----------------------------------------|-------------------------------------------------------------------------|
-| `scripts/resolve-version.sh`           | 解析 `version`，判定渠道，nightly 自动展开                              |
-| `scripts/nightly-tag.sh`               | 创建并推送 nightly tag                                                  |
-| `scripts/create-release.sh`            | 创建/替换 Release；nightly 渠道额外裁剪到最近 3 个                      |
-| `scripts/prune-nightly.mjs`            | 调 CNB OpenAPI 删除多余的 nightly Release                               |
+| `scripts/ci/resolve-version.sh`        | 解析 `version`，判定渠道，nightly 自动展开                              |
+| `scripts/ci/nightly-tag.sh`            | 创建并推送 nightly tag                                                  |
+| `scripts/ci/create-release.sh`         | 创建/替换 Release                                                       |
+| `scripts/ci/delete-release.sh`         | 清理旧 nightly Release（保留最近 3 个）                                 |
 | `market/build-index.mjs`               | 重建 `market/index.json`（自建索引源），由 NPC 调用或手动运行           |
 | `.cnb/scripts/request-index-update.sh` | 发布后维护固定 Issue 并 `@dtapp/dsh-git-guard(索引更新员)` 派活更新索引 |
 
@@ -183,7 +183,7 @@ node test.mjs   # 44 条应拦截 / 26 条应放行
 本地验证版本解析逻辑（不真正发布）：
 
 ```bash
-VERSION=nightly bash scripts/resolve-version.sh
+VERSION=nightly bash scripts/ci/resolve-version.sh
 ```
 
 ## 已知边界

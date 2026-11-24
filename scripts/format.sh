@@ -68,6 +68,7 @@ YAMLFMT_CONF=".yamlfmt"
 YAMLFMT_ARGS=()
 YAML_TARGETS=(
   ".cnb"
+  ".github"
   ".cnb.yml"
   "cordis.patch.yml"
 )
@@ -117,6 +118,7 @@ SHELL_TARGETS=(
 # Dockerfile：扫描目录、文件名匹配、dockerfmt 参数
 DOCKER_DIRS=(
   ".cnb"
+  ".github"
 )
 DOCKER_GLOB="Dockerfile*"
 DOCKERFMT_ARGS=(-w)

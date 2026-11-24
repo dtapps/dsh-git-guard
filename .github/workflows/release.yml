@@ -1,0 +1,134 @@
+# 发布工作流：与 CNB 的 .cnb/workflows/release.yml 对齐。
+# 纯 Node 插件，没有 Go / Wails 构建步骤。两种触发共用同一套步骤：
+#   * 每天 00:00 定时发 nightly（VERSION=nightly 自动展开为 <最新正式版+1补丁>-nightly.<日期>）
+#   * workflow_dispatch 手动填 version（semver 或 nightly）与 commit（留空用触发分支 HEAD）
+#
+# version 规则见 scripts/ci/resolve-version.sh。
+# 两个 CI 各发各的制品库：CNB 流水线发到 CNB 制品库，这里发到 GitHub Packages。
+# GitHub Packages 要求 scope 与仓库 owner（dtapps）一致，所以发布前把包名改成
+# @dtapps/dsh-git-guard；CNB 制品库仍用 package.json 原有的 @dtapp/dsh-git-guard。
+# 令牌用 secrets.GITHUB_TOKEN（需 packages: write）。
+#
+# https://github.com/actions/checkout
+# https://github.com/actions/setup-node
+# https://github.com/softprops/action-gh-release
+name: Release
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号：1.2.3 / 1.2.3-rc.1 / 1.2.3-nightly.20260101；填 nightly 自动展开'
+        required: true
+        type: string
+        default: nightly
+      commit:
+        description: '要发布的提交 SHA（留空用当前分支最新提交）'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+  packages: write
+
+# 发布目标统一在这里维护。注意不要叫 NPM_REGISTRY：
+# scripts/ci/resolve-version.sh 会用同名变量查基准版本，那必须继续指向 CNB 制品库。
+env:
+  PUBLISH_NAME: '@dtapps/dsh-git-guard'
+  PUBLISH_SCOPE: '@dtapps'
+  PUBLISH_REGISTRY: https://npm.pkg.github.com
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ github.event_name == 'schedule' && 'nightly' || inputs.version }}
+      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.commit || github.sha }}
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '26'
+          registry-url: ${{ env.PUBLISH_REGISTRY }}
+
+      - name: 配置发布 scope 指向 GitHub Packages
+        shell: bash
+        run: npm config set "${PUBLISH_SCOPE}:registry" "$PUBLISH_REGISTRY"
+
+      - name: 切换到指定提交
+        shell: bash
+        run: |
+          if [ -n "${{ inputs.commit }}" ]; then
+            echo "built from ${{ inputs.commit }}"
+          else
+            echo "built from ${GITHUB_SHA}"
+          fi
+
+      - name: 解析版本
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/ci/resolve-version.sh
+          while IFS='=' read -r key value; do
+            echo "${key}=${value}" >> "$GITHUB_OUTPUT"
+          done < .version.env
+
+      - name: 插件逻辑自检
+        run: node test.mjs
+
+      - name: 辅助脚本自检
+        run: node test-setup-registry.mjs
+
+      - name: 创建标签
+        shell: bash
+        env:
+          TAG: ${{ steps.version.outputs.TAG }}
+          CNB_COMMIT: ${{ github.sha }}
+        run: bash scripts/ci/nightly-tag.sh
+
+      - name: 写入版本号与 GitHub Packages 包名
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          node -e "const fs=require('fs');const p=require('./package.json');p.version=process.env.PACKAGE_VERSION;p.name=process.env.PUBLISH_NAME;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
+
+      - name: 发布到 GitHub Packages
+        shell: bash
+        env:
+          DIST_TAG: ${{ steps.version.outputs.DIST_TAG }}
+        run: npm publish --tag "$DIST_TAG" --registry "$PUBLISH_REGISTRY"
+
+      - name: 创建 Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.version.outputs.TAG }}
+          name: ${{ steps.version.outputs.TAG }}
+          prerelease: ${{ steps.version.outputs.PRERELEASE == 'true' }}
+          body: |
+            ${{ steps.version.outputs.TAG }}（${{ steps.version.outputs.CHANNEL }}）
+            Commit: ${{ github.sha }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 清理旧 nightly Release（保留 3 个）
+        if: steps.version.outputs.CHANNEL == 'nightly'
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: sh scripts/ci/delete-release.sh --platform github --keep 3

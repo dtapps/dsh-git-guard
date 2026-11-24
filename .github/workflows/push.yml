@@ -1,0 +1,39 @@
+# push 自检：与 CNB 的 .cnb/workflows/push.yml 对齐。
+# 本仓库是纯 Node 插件，没有 Go / Wails / pnpm 构建步骤：
+# 检出后直接用 Node 26 跑 test.mjs（插件逻辑自检），外加辅助脚本自检。
+#
+# https://github.com/actions/checkout
+# https://github.com/actions/setup-node
+name: Push 自检
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+permissions:
+  contents: read
+
+# 同一分支的多次触发串行排队，不取消正在运行的旧任务。
+concurrency:
+  group: push-check-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v7
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '26'
+
+      - name: 插件逻辑自检
+        run: node test.mjs
+
+      - name: 辅助脚本自检
+        run: node test-setup-registry.mjs

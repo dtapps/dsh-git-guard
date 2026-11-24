@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Create (or replace) the Release for TAG, then — nightly channel only — prune
-# old nightly Releases down to the newest $NIGHTLY_KEEP (default 3).
+# Create (or replace) the Release for TAG.
+# Nightly 清理由发布流水线单独调用 scripts/ci/delete-release.sh 完成。
 #
 # Used by both tag_push and nightly: it looks the Release up by tag and replaces
 # it, so re-running a version is idempotent (mirrors git:release's default
@@ -34,10 +34,6 @@ msg() {
     zh:create_release) printf '==> 创建 Release %s（预发布=%s，最新=%s）\n' "$@" ;;
     en:release_exists) printf '==> release for %s exists (id %s), replacing\n' "$@" ;;
     zh:release_exists) printf '==> %s 的 Release 已存在（id %s），将替换\n' "$@" ;;
-    en:pruning) printf '==> pruning nightly releases, keeping %s\n' "$@" ;;
-    zh:pruning) printf '==> 清理 nightly Release，保留 %s 个\n' "$@" ;;
-    en:dry_run_prune) printf '[dry-run] node scripts/prune-nightly.mjs\n' ;;
-    zh:dry_run_prune) printf '[dry-run] node scripts/prune-nightly.mjs\n' ;;
     en:release_ready) printf '==> release %s ready\n' "$@" ;;
     zh:release_ready) printf '==> Release %s 已就绪\n' "$@" ;;
     en:description_nightly) printf 'Nightly build of %s (UTC %s). Not for production use.\n' "$@" ;;
@@ -63,7 +59,6 @@ require CHANNEL
 require PRERELEASE
 
 API="https://api.cnb.cool"
-NIGHTLY_KEEP="${NIGHTLY_KEEP:-3}"
 DRY_RUN="${DRY_RUN:-0}"
 
 api() {
@@ -108,12 +103,4 @@ if [ -n "$existing_id" ]; then
 fi
 api POST "/${CNB_REPO_SLUG}/-/releases" "$BODY" >/dev/null
 
-if [ "$CHANNEL" = "nightly" ]; then
-  msg pruning "$NIGHTLY_KEEP"
-  if [ "$DRY_RUN" = "1" ]; then
-    msg dry_run_prune
-  else
-    node scripts/prune-nightly.mjs
-  fi
-fi
 msg release_ready "$TAG"

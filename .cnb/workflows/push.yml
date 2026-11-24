@@ -1,9 +1,13 @@
-# push 自检：每次推送都跑插件逻辑自检（44 条拦截 / 26 条放行）。
+# push 自检：每次推送都跑插件逻辑自检（44 条拦截 / 26 条放行）
+# 与辅助脚本自检（setup-registry 的创建/幂等/撤销/自动检测等）。
 # 由 .cnb.yml 的 include 引入。
 main:
   push:
-    - name: push 自检
+    - name: Push 自检
       stages:
-        - name: test
+        - name: 插件逻辑自检
           image: node:26
           script: node test.mjs
+        - name: 辅助脚本自检
+          image: node:26
+          script: node test-setup-registry.mjs

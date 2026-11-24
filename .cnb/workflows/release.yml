@@ -3,13 +3,13 @@
 # 本文件由 .cnb.yml 的 include 引入，只负责发布：定时 nightly 与手动按钮。
 # 两种触发共用同一条流水线（定义一次，见下面的 &publish_stages 锚点；CNB 不支持
 # 跨文件锚点，所以整条 stages 必须留在本文件内）：
-#   * crontab：每天 UTC 00:00（北京 08:00）自动跑，version 固定为 nightly。
+#   * crontab：每天 00:00 自动跑，version 固定为 nightly。
 #   * web_trigger：手动点按钮，页面表单填 version（semver 或 nightly）与 commit（见
 #     .cnb/web_trigger.yml）。CNB 按 input key 原样注入环境变量，即小写 $version /
-#     $commit；scripts/resolve-version.sh 同时兼容 $version 与大写 $VERSION（后者供
+#     $commit；scripts/ci/resolve-version.sh 同时兼容 $version 与大写 $VERSION（后者供
 #     crontab 的 job env 使用）。
 #
-# 入参 version 规则见 scripts/resolve-version.sh：
+# 入参 version 规则见 scripts/ci/resolve-version.sh：
 #   1.2.3                  -> 正式版，Release 不勾选 prerelease，npm dist-tag=latest
 #   1.2.3-rc.1             -> 预发布（rc 渠道）
 #   1.2.3-beta.1           -> 预发布（beta 渠道）
@@ -28,6 +28,7 @@
 # ---- 唯一的一条流水线：定时和手动共用同一份 stages ----
 # 手动触发时若填了 commit，则先切到该提交；定时 / 留空时 COMMIT 为空，用默认分支 HEAD。
 stages: &publish_stages
+
   - name: 切换到指定提交
     image: node:26
     script: |
@@ -38,39 +39,63 @@ stages: &publish_stages
       else
         echo "built from ${CNB_COMMIT_SHORT}"
       fi
+
   - name: 解析版本
     image: node:26
-    script: bash scripts/resolve-version.sh
+    script: bash scripts/ci/resolve-version.sh
     exports:
       VERSION: VERSION
       TAG: TAG
       CHANNEL: CHANNEL
       DIST_TAG: DIST_TAG
       PRERELEASE: PRERELEASE
+
   - name: 自检
     image: node:26
     script: node test.mjs
+
   - name: 创建 nightly 标签
     image: node:26
-    script: bash scripts/nightly-tag.sh
-  - name: 写入版本号到 package.json
+    script: bash scripts/ci/nightly-tag.sh
+
+  - name: 写入版本号与包名到 package.json
     image: node:26
     script: |
-      node -e "const fs=require('fs');const p=require('./package.json');p.version=process.env.VERSION;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
+      node -e "const fs=require('fs');const p=require('./package.json');p.version=process.env.VERSION;p.name=process.env.PUBLISH_NAME;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
+
+  # 提前把 scope 映射写进工作区 .npmrc，让发布插件按统一 registry 解析 @dtapp 包。
+  - name: 配置 npm scope
+    image: node:26
+    script: |
+      printf '%s:registry=%s\n' "$PUBLISH_SCOPE" "$PUBLISH_REGISTRY" > .npmrc
+
   - name: 发布到制品库
     image: tencentcom/npm
     settings:
       username: $CNB_TOKEN_USER_NAME
       token: $CNB_TOKEN
       email: $CNB_COMMITTER_EMAIL
-      registry: https://npm.cnb.cool/dtapp/dsh/-/packages/
+      registry: $PUBLISH_REGISTRY
       folder: ./
       tag: $DIST_TAG
       access: public
       fail_on_version_conflict: true
+
   - name: 创建 Release
     image: node:26
-    script: bash scripts/create-release.sh
+    script: bash scripts/ci/create-release.sh
+
+  # 与 GitHub 发布流程共用 scripts/ci/delete-release.sh：只清 nightly，保留最新 3 个。
+  # 清理失败只告警（allowFailure），不能连累已经成功的发布。
+  - name: 清理旧 nightly Release（保留 3 个）
+    image: node:26
+    if: |
+      [ "$CHANNEL" = "nightly" ]
+    allowFailure: true
+    script: |
+      command -v jq >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq jq)
+      sh scripts/ci/delete-release.sh --platform cnb --keep 3
+
   # 派活给 NPC 重建插件市场索引源：固定 Issue + @dtapp/dsh-git-guard(索引更新员)，
   # 失败只告警，不影响已成功的发布。NPC_ENABLED=false 时整段不执行（不触发 NPC）。
   - name: 请求 NPC 更新索引源
@@ -81,18 +106,25 @@ stages: &publish_stages
     allowFailure: true
     script: |
       sh .cnb/scripts/request-index-update.sh "$VERSION"
+
 main:
-  # 每天定时构建 nightly。平台时区 Asia/Shanghai，08:00 = UTC 00:00。
-  # 定时固定发 nightly（env VERSION=nightly）；手动则由表单的 version 覆盖。
-  'crontab: 0 8 * * *':
+  # 每天 00:00 定时构建 nightly；手动则由表单的 version 覆盖。
+  'crontab: 0 0 * * *':
     - name: 定时发布 nightly
       env:
         VERSION: nightly
+        PUBLISH_NAME: '@dtapp/dsh-git-guard'
+        PUBLISH_SCOPE: '@dtapp'
+        PUBLISH_REGISTRY: https://npm.cnb.cool/dtapp/dsh/-/packages/
       # NPC 开关：npc.yml 提供 NPC_ENABLED=true；改成 false 可全局关闭 NPC 派活。
       imports: https://cnb.cool/dtapp/envs/-/blob/main/npc.yml
       stages: *publish_stages
   # 手动执行：version 与 commit 由 .cnb/web_trigger.yml 的 inputs 表单注入。
   web_trigger_nightly:
     - name: 手动发布
+      env:
+        PUBLISH_NAME: '@dtapp/dsh-git-guard'
+        PUBLISH_SCOPE: '@dtapp'
+        PUBLISH_REGISTRY: https://npm.cnb.cool/dtapp/dsh/-/packages/
       imports: https://cnb.cool/dtapp/envs/-/blob/main/npc.yml
       stages: *publish_stages
