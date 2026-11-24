@@ -50,7 +50,7 @@
       "versions": [
         {
           "version": "1.0.6-nightly.20261124",
-          "publishTimestamp": 1795498451,
+          "publishTimestamp": 1795499287,
           "source": {
             "type": "npm",
             "registry": "https://npm.cnb.cool/dtapp/dsh/-/packages/"
