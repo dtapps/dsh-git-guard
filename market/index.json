@@ -49,6 +49,15 @@
       },
       "versions": [
         {
+          "version": "1.0.5-nightly.20261124",
+          "publishTimestamp": 1795478474,
+          "source": {
+            "type": "npm",
+            "registry": "https://npm.cnb.cool/dtapp/dsh/-/packages/"
+          },
+          "engines": {}
+        },
+        {
           "version": "1.0.4",
           "publishTimestamp": 1795437584,
           "source": {
