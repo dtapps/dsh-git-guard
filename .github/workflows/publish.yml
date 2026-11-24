@@ -34,6 +34,7 @@ on:
 permissions:
   contents: write
   packages: write
+  pull-requests: write
 
 # 发布目标统一在这里维护。注意不要叫 NPM_REGISTRY：
 # scripts/ci/resolve-version.sh 会用同名变量查基准版本，那必须继续指向 CNB 制品库。
@@ -160,6 +161,43 @@ jobs:
         shell: bash
         run: cp README.github.md README.md
 
+      # Release 正文：README 的安装用法 + release-changelog.sh 生成的变更内容。
+      - name: 生成 Release 正文
+        shell: bash
+        env:
+          TAG: ${{ steps.version.outputs.TAG }}
+          REPO_URL: https://github.com/${{ github.repository }}
+        run: |
+          export COMMIT_URL="${REPO_URL}/commit"
+          {
+            echo "## 安装"
+            echo
+            awk '/^## 安装到 DeepSeekHarness/{flag=1;next}/^## 机制/{flag=0}flag' README.github.md
+            echo
+            echo "## 更新内容"
+            echo
+            sh scripts/ci/release-changelog.sh "$TAG"
+          } > release_body.md
+
+      - name: 创建 Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.version.outputs.TAG }}
+          name: ${{ steps.version.outputs.TAG }}
+          prerelease: ${{ steps.version.outputs.PRERELEASE == 'true' }}
+          body_path: release_body.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 清理旧 nightly Release（保留 3 个）
+        if: steps.version.outputs.CHANNEL == 'nightly'
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: sh scripts/ci/delete-release.sh --platform github --keep 3
+
+      # Release 已成功后再发布 npm；前面任一步失败都不会动制品库。
       - name: 发布到 GitHub Packages
         if: steps.version_exists.outputs.exists != 'true'
         shell: bash
@@ -180,44 +218,6 @@ jobs:
             exit 0
           fi
           exit "$rc"
-
-      # Release 正文：README 的安装用法 + release-changelog.sh 生成的变更内容。
-      - name: 生成 Release 正文
-        if: steps.version_exists.outputs.exists != 'true'
-        shell: bash
-        env:
-          TAG: ${{ steps.version.outputs.TAG }}
-          REPO_URL: https://github.com/${{ github.repository }}
-        run: |
-          export COMMIT_URL="${REPO_URL}/commit"
-          {
-            echo "## 安装"
-            echo
-            awk '/^## 安装到 DeepSeekHarness/{flag=1;next}/^## 机制/{flag=0}flag' README.github.md
-            echo
-            echo "## 更新内容"
-            echo
-            sh scripts/ci/release-changelog.sh "$TAG"
-          } > release_body.md
-
-      - name: 创建 Release
-        if: steps.version_exists.outputs.exists != 'true'
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ steps.version.outputs.TAG }}
-          name: ${{ steps.version.outputs.TAG }}
-          prerelease: ${{ steps.version.outputs.PRERELEASE == 'true' }}
-          body_path: release_body.md
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 清理旧 nightly Release（保留 3 个）
-        if: steps.version_exists.outputs.exists != 'true' && steps.version.outputs.CHANNEL == 'nightly'
-        continue-on-error: true
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: sh scripts/ci/delete-release.sh --platform github --keep 3
 
       # 发布后重建索引，用 Golang 镜像格式化，再创建 PR + 自动批准 + 合并。
       - name: 重建插件市场索引
