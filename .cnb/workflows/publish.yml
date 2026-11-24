@@ -50,7 +50,7 @@ stages: &publish_stages
       DIST_TAG: DIST_TAG
       PRERELEASE: PRERELEASE
 
-  # 包版本不可变：已存在则整个发布流程跳过（工作流仍为成功）。
+  # 包版本已存在则跳过后续全部步骤（工作流保持成功）。
   - name: 检查包版本是否已存在
     image: node:26
     script: |
@@ -68,11 +68,11 @@ stages: &publish_stages
     exports:
       VERSION_EXISTS: EXISTS
 
-  - name: 包版本已存在，跳过发布
+  - name: 包版本已存在，跳过后续步骤
     image: node:26
     if: |
       [ "$VERSION_EXISTS" = "true" ]
-    script: echo "包版本已存在，跳过后续步骤"
+    script: echo "包版本已存在，跳过后续全部步骤"
 
   # 重跑同一版本时先删掉旧的 Release 与 tag，保证下面能重新创建。
   # tag 也可能已经被删过，这里允许失败，不阻断发布。
@@ -94,6 +94,15 @@ stages: &publish_stages
     if: |
       [ "$VERSION_EXISTS" != "true" ]
     script: bash scripts/ci/nightly-tag.sh
+
+  # CNB 发布内容里的 raw 链接固定到当前 tag，避免用户看到 /main/ 的漂移内容。
+  - name: 把 README 里的 CNB main 链接改成当前版本
+    image: node:26
+    if: |
+      [ "$VERSION_EXISTS" != "true" ]
+    script: |
+      sed -i.bak "s|/-/git/raw/main/|/-/git/raw/${TAG}/|g" README.md
+      rm -f README.md.bak
 
   - name: 写入版本号与包名到 package.json
     image: node:26
@@ -125,11 +134,42 @@ stages: &publish_stages
       # 同版本重跑不因制品库已有该版本而中断；tag / Release 已在上一步重建。
       fail_on_version_conflict: false
 
-  - name: 创建 Release
+  # Release 正文：README 的安装用法 + release-changelog.sh 生成的变更内容。
+  - name: 生成 Release 正文
     image: node:26
     if: |
       [ "$VERSION_EXISTS" != "true" ]
-    script: bash scripts/ci/create-release.sh
+    script: |
+      REPO_URL="https://cnb.cool/${CNB_REPO_SLUG}"
+      COMMIT_URL="${REPO_URL}/-/commit"
+      PKG_NAME="$(node -p "require('./package.json').name")"
+      RELEASE_TITLE="${PKG_NAME} ${TAG}"
+      if [ "$PRERELEASE" = "false" ]; then MAKE_LATEST=true; else MAKE_LATEST=false; fi
+      export COMMIT_URL REPO_URL RELEASE_TITLE MAKE_LATEST
+      {
+        echo "## 安装"
+        echo
+        awk '/^## 安装到 DeepSeekHarness/{flag=1;next}/^## 机制/{flag=0}flag' README.md
+        echo
+        echo "## 更新内容"
+        echo
+        sh scripts/ci/release-changelog.sh "$TAG"
+      } > release_body.md
+    exports:
+      RELEASE_TITLE: RELEASE_TITLE
+      MAKE_LATEST: MAKE_LATEST
+
+  # 官方插件：Release 已存在时默认删除后重建（overlying: false）。
+  - name: 创建 Release
+    type: git:release
+    if: |
+      [ "$VERSION_EXISTS" != "true" ]
+    options:
+      tag: $TAG
+      title: $RELEASE_TITLE
+      descriptionFromFile: release_body.md
+      preRelease: $PRERELEASE
+      latest: $MAKE_LATEST
 
   # 与 GitHub 发布流程共用 scripts/ci/delete-release.sh：只清 nightly，保留最新 3 个。
   # 清理失败只告警（allowFailure），不能连累已经成功的发布。

@@ -88,7 +88,7 @@ jobs:
             echo "${key}=${value}" >> "$GITHUB_OUTPUT"
           done < .version.env
 
-      # 包版本不可变：已存在则整个发布流程跳过（工作流仍为成功）。
+      # 包版本已存在则跳过后续全部步骤（工作流保持成功）。
       - name: 检查包版本是否已存在
         id: version_exists
         shell: bash
@@ -105,10 +105,10 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: 包版本已存在，跳过发布
+      - name: 包版本已存在，跳过后续步骤
         if: steps.version_exists.outputs.exists == 'true'
         shell: bash
-        run: echo "::notice::包版本已存在，跳过后续发布步骤"
+        run: echo "::notice::包版本已存在，跳过后续全部步骤"
 
       # 重跑同一版本时先删掉旧的 Release 与 tag，保证下面能重新创建。
       - name: 删除同名旧 Release 与 tag（如果存在）
@@ -145,6 +145,16 @@ jobs:
           node -e "const fs=require('fs');const p=require('./package.json');p.version=process.env.PACKAGE_VERSION;p.name=process.env.PUBLISH_NAME;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
 
       # GitHub Packages 上的包内 README 用 GitHub 版；仓库里的 README.md 不变。
+      # GitHub 发布内容里的 raw 链接固定到当前 tag，避免用户看到 /main/ 的漂移内容。
+      - name: 把 README 里的 GitHub main 链接改成当前版本
+        if: steps.version_exists.outputs.exists != 'true'
+        shell: bash
+        env:
+          TAG: ${{ steps.version.outputs.TAG }}
+        run: |
+          sed -i.bak "s|raw.githubusercontent.com/dtapps/dsh-git-guard/main/|raw.githubusercontent.com/dtapps/dsh-git-guard/${TAG}/|g" README.github.md
+          rm -f README.github.md.bak
+
       - name: 使用 README.github.md 覆盖 README.md
         if: steps.version_exists.outputs.exists != 'true'
         shell: bash
@@ -171,6 +181,25 @@ jobs:
           fi
           exit "$rc"
 
+      # Release 正文：README 的安装用法 + release-changelog.sh 生成的变更内容。
+      - name: 生成 Release 正文
+        if: steps.version_exists.outputs.exists != 'true'
+        shell: bash
+        env:
+          TAG: ${{ steps.version.outputs.TAG }}
+          REPO_URL: https://github.com/${{ github.repository }}
+        run: |
+          export COMMIT_URL="${REPO_URL}/commit"
+          {
+            echo "## 安装"
+            echo
+            awk '/^## 安装到 DeepSeekHarness/{flag=1;next}/^## 机制/{flag=0}flag' README.github.md
+            echo
+            echo "## 更新内容"
+            echo
+            sh scripts/ci/release-changelog.sh "$TAG"
+          } > release_body.md
+
       - name: 创建 Release
         if: steps.version_exists.outputs.exists != 'true'
         uses: softprops/action-gh-release@v3
@@ -178,9 +207,7 @@ jobs:
           tag_name: ${{ steps.version.outputs.TAG }}
           name: ${{ steps.version.outputs.TAG }}
           prerelease: ${{ steps.version.outputs.PRERELEASE == 'true' }}
-          body: |
-            ${{ steps.version.outputs.TAG }}（${{ steps.version.outputs.CHANNEL }}）
-            Commit: ${{ github.sha }}
+          body_path: release_body.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
