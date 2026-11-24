@@ -46,6 +46,15 @@
       "versions": [
         {
           "engines": {},
+          "publishTimestamp": 1795494943,
+          "source": {
+            "registry": "https://npm.pkg.github.com/",
+            "type": "npm"
+          },
+          "version": "1.0.6-nightly.20261124"
+        },
+        {
+          "engines": {},
           "publishTimestamp": 1795493417,
           "source": {
             "registry": "https://npm.pkg.github.com/",
