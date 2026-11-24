@@ -160,6 +160,7 @@ jobs:
           node -e "const fs=require('fs');const p=require('./package.json');p.version=process.env.PACKAGE_VERSION;p.name=process.env.PUBLISH_NAME;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
 
       # GitHub Packages 上的包内 README 用 GitHub 版；仓库里的 README.md 不变。
+      # 源文件放在 docs/ 下：npm 会强制收录根目录所有 README* 文件，放根目录会被打进包里。
       # GitHub 发布内容里的 raw 链接固定到当前 tag，避免用户看到 /main/ 的漂移内容。
       # - name: 把 README 里的 GitHub main 链接改成当前版本
       #   if: steps.version_exists.outputs.exists != 'true'
@@ -167,13 +168,13 @@ jobs:
       #   env:
       #     TAG: ${{ steps.version.outputs.TAG }}
       #   run: |
-      #     sed -i.bak "s|raw.githubusercontent.com/dtapps/dsh-git-guard/main/|raw.githubusercontent.com/dtapps/dsh-git-guard/${TAG}/|g" README.github.md
-      #     rm -f README.github.md.bak
+      #     sed -i.bak "s|raw.githubusercontent.com/dtapps/dsh-git-guard/main/|raw.githubusercontent.com/dtapps/dsh-git-guard/${TAG}/|g" docs/README.github.md
+      #     rm -f docs/README.github.md.bak
 
-      - name: 使用 README.github.md 覆盖 README.md
+      - name: 使用 docs/README.github.md 覆盖 README.md
         if: steps.version_exists.outputs.exists != 'true'
         shell: bash
-        run: cp README.github.md README.md
+        run: cp docs/README.github.md README.md
 
       # Release 正文：README 的安装用法 + release-changelog.sh 生成的变更内容。
       - name: 生成 Release 正文
@@ -188,7 +189,7 @@ jobs:
           {
             echo "## 安装"
             echo
-            awk '/^## 安装到 DeepSeekHarness/{flag=1;next}/^## 机制/{flag=0}flag' README.github.md
+            awk '/^## 安装到 DeepSeekHarness/{flag=1;next}/^## 机制/{flag=0}flag' docs/README.github.md
             echo
             echo "## 更新内容"
             echo
@@ -228,6 +229,17 @@ jobs:
           set -e
           printf '%s\n' "$out"
           if [ "$rc" -eq 0 ]; then
+            # 只有不带 -rc/-beta/-alpha/-nightly 后缀的正式版才该占 latest；
+            # npm 对「首个版本」有兜底行为，这里核对一次，串了只告警不改写。
+            latest="$(npm view "$PUBLISH_NAME" dist-tags.latest --registry "$PUBLISH_REGISTRY" 2>/dev/null || true)"
+            echo "latest 当前指向：${latest:-<未设置>}（本次 dist-tag=${DIST_TAG}）"
+            case "$latest" in
+              *-*)
+                if [ "$DIST_TAG" != "latest" ]; then
+                  echo "::warning::latest 指向预发布版本 ${latest}；发一个正式版（无 -rc/-beta/-alpha/-nightly 后缀）即会自动纠正"
+                fi
+                ;;
+            esac
             exit 0
           fi
           # npm 包版本不可变；同版本重跑时 tag / Release 已重建，包沿用已发布的即可。

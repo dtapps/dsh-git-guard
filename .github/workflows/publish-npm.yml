@@ -12,7 +12,7 @@
 #
 # 发布前的同步顺序（与另外两个源一致）：
 #   1. 把 version 写进 package.json（同时改包名为 @dtapp/dsh-git-guard、仓库地址指向 GitHub）
-#   2. 用 README.npm.md 覆盖 README.md（npm 包页面展示的就是包内 README.md）
+#   2. 用 docs/README.npm.md 覆盖 README.md（npm 包页面展示的就是包内 README.md）
 #   3. npm publish
 #
 # 也可以手动 workflow_dispatch 补发，此时必须自己填 version。
@@ -167,9 +167,9 @@ jobs:
           GITHUB_URL: https://github.com/${{ github.repository }}
         run: |
           set -euo pipefail
-          test -s README.npm.md || { echo "::error::README.npm.md 为空，npm 包页会没有 README"; exit 1; }
+          test -s docs/README.npm.md || { echo "::error::docs/README.npm.md 为空，npm 包页会没有 README"; exit 1; }
           node -e "const fs=require('fs');const p=require('./package.json');p.version=process.env.PACKAGE_VERSION;p.name=process.env.NPMJS_NAME;p.repository={...p.repository,type:'git',url:process.env.GITHUB_URL};fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
-          cp README.npm.md README.md
+          cp docs/README.npm.md README.md
           test -s README.md || { echo "::error::README.md 覆盖后为空"; exit 1; }
           echo "将要发布：$(node -p "require('./package.json').name + '@' + require('./package.json').version")"
           echo "包内 README.md：$(wc -c < README.md) 字节"
@@ -197,6 +197,17 @@ jobs:
           set -e
           printf '%s\n' "$out"
           if [ "$rc" -eq 0 ]; then
+            # 只有不带 -rc/-beta/-alpha/-nightly 后缀的正式版才该占 latest；
+            # npm 对「首个版本」有兜底行为，这里核对一次，串了只告警不改写。
+            latest="$(npm view "$NPMJS_NAME" dist-tags.latest --registry "$NPMJS_REGISTRY" 2>/dev/null || true)"
+            echo "latest 当前指向：${latest:-<未设置>}（本次 dist-tag=${DIST_TAG}）"
+            case "$latest" in
+              *-*)
+                if [ "$DIST_TAG" != "latest" ]; then
+                  echo "::warning::latest 指向预发布版本 ${latest}；发一个正式版（无 -rc/-beta/-alpha/-nightly 后缀）即会自动纠正"
+                fi
+                ;;
+            esac
             exit 0
           fi
           # 令牌被要求输入 OTP：CI 无法交互。granular token 需要在创建时勾选 Bypass 2FA

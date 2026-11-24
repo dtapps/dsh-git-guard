@@ -2,11 +2,9 @@
 
 阻止 agent 自行执行 `git commit`、`git push` 等写操作，装到 profile 后对整个 Harness 生效。
 
-[![发布](https://img.shields.io/github/actions/workflow/status/dtapps/dsh-git-guard/publish.yml?branch=main&label=%E5%8F%91%E5%B8%83)](https://github.com/dtapps/dsh-git-guard/actions/workflows/publish.yml) [![版本](https://img.shields.io/github/v/release/dtapps/dsh-git-guard?label=%E7%89%88%E6%9C%AC)](https://github.com/dtapps/dsh-git-guard/releases) [![GitHub 访问](https://visitor-badge.laobi.icu/badge?page_id=github/dtapps/dsh-git-guard)](https://github.com/dtapps/dsh-git-guard) [![星标](https://img.shields.io/github/stars/dtapps/dsh-git-guard?label=%E6%98%9F%E6%A0%87)](https://github.com/dtapps/dsh-git-guard/stargazers) [![分叉](https://img.shields.io/github/forks/dtapps/dsh-git-guard?label=%E5%88%86%E5%8F%89)](https://github.com/dtapps/dsh-git-guard/forks) [![许可证](https://img.shields.io/github/license/dtapps/dsh-git-guard?label=%E8%AE%B8%E5%8F%AF%E8%AF%81)](https://github.com/dtapps/dsh-git-guard/blob/main/LICENSE) [![语言](https://img.shields.io/github/languages/top/dtapps/dsh-git-guard?label=%E8%AF%AD%E8%A8%80)](https://github.com/dtapps/dsh-git-guard) [![仓库大小](https://img.shields.io/github/repo-size/dtapps/dsh-git-guard?label=%E4%BB%93%E5%BA%93%E5%A4%A7%E5%B0%8F)](https://github.com/dtapps/dsh-git-guard)
+[![版本](https://img.shields.io/github/v/release/dtapps/dsh-git-guard?label=%E7%89%88%E6%9C%AC)](https://github.com/dtapps/dsh-git-guard/releases) [![GitHub 访问](https://visitor-badge.laobi.icu/badge?page_id=github/dtapps/dsh-git-guard)](https://github.com/dtapps/dsh-git-guard) [![星标](https://img.shields.io/github/stars/dtapps/dsh-git-guard?label=%E6%98%9F%E6%A0%87)](https://github.com/dtapps/dsh-git-guard/stargazers) [![分叉](https://img.shields.io/github/forks/dtapps/dsh-git-guard?label=%E5%88%86%E5%8F%89)](https://github.com/dtapps/dsh-git-guard/forks) [![许可证](https://img.shields.io/github/license/dtapps/dsh-git-guard?label=%E8%AE%B8%E5%8F%AF%E8%AF%81)](https://github.com/dtapps/dsh-git-guard/blob/main/LICENSE) [![语言](https://img.shields.io/github/languages/top/dtapps/dsh-git-guard?label=%E8%AF%AD%E8%A8%80)](https://github.com/dtapps/dsh-git-guard) [![仓库大小](https://img.shields.io/github/repo-size/dtapps/dsh-git-guard?label=%E4%BB%93%E5%BA%93%E5%A4%A7%E5%B0%8F)](https://github.com/dtapps/dsh-git-guard)
 
 代码仓库：https://github.com/dtapps/dsh-git-guard ；npm 包发布在 GitHub Packages `https://npm.pkg.github.com`（包名 `@dtapps/dsh-git-guard`，需要 token 才能拉取）。
-
-同名包也发布在 npm 公共源（`@dtapp/dsh-git-guard`，无需 token），安装方式见 [README.npm.md](README.npm.md)；本页安装步骤针对 GitHub Packages。
 
 ## 安装到 DeepSeekHarness
 
@@ -57,8 +55,6 @@ https://raw.githubusercontent.com/dtapps/dsh-git-guard/main/market/index.github.
 ```
 
 在 DSH 中打开 `插件 → 发现 → 索引源`，添加上面的地址（索引源属于 profile，每个 profile 需单独添加一次）。之后即可在发现页搜索 `@dtapps/dsh-git-guard`，点击安装时索引里的 `source.registry` 会指向 GitHub Packages。索引里的版本发布时间取自 GitHub Packages，安装时仍需按上面的 `.npmrc` 配置 token。
-
-仓库里的 `market/index.json` 指向 CNB 制品库，是默认 README 使用的索引，不要拿它来装 GitHub 版。
 
 ### 辅助脚本：配置/撤销 scope 映射
 

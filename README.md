@@ -2,17 +2,15 @@
 
 阻止 agent 自行执行 `git commit`、`git push` 等写操作，装到 profile 后对整个 Harness 生效。
 
-[![漏洞扫描](https://cnb.cool/dtapp/dsh-git-guard/-/badge/security/vulnerability/full/latest)](https://cnb.cool/dtapp/dsh-git-guard/-/security) [![CNB 版本](https://commit.cool/badge/release/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard/-/releases) [![NPM 拉取次数](https://commit.cool/badge/package/npm/pulls/dtapp/dsh)](https://npm.cnb.cool/dtapp/dsh/-/packages/) [![CNB 访问](https://commit.cool/badge/visit/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 星标](https://cnb.cool/dtapp/dsh-git-guard/-/badge/star)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 分叉](https://cnb.cool/dtapp/dsh-git-guard/-/badge/fork)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 仓库年龄](https://commit.cool/badge/age/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 主要语言](https://commit.cool/badge/language/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 许可证](https://commit.cool/badge/license/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 存储用量](https://commit.cool/badge/usage/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB Git 存储](https://commit.cool/badge/usage/git/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB LFS 存储](https://commit.cool/badge/usage/lfs/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard)
+[![漏洞扫描](https://cnb.cool/dtapp/dsh-git-guard/-/badge/security/vulnerability/full/latest)](https://cnb.cool/dtapp/dsh-git-guard/-/security) [![最新版本](https://cnb.cool/dtapp/dsh-git-guard/-/badge/release)](https://cnb.cool/dtapp/dsh-git-guard/-/releases) [![NPM 拉取次数](https://commit.cool/badge/package/npm/pulls/dtapp/dsh)](https://npm.cnb.cool/dtapp/dsh/-/packages/) [![CNB 访问](https://commit.cool/badge/visit/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 星标](https://cnb.cool/dtapp/dsh-git-guard/-/badge/star)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 分叉](https://cnb.cool/dtapp/dsh-git-guard/-/badge/fork)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 仓库年龄](https://commit.cool/badge/age/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 主要语言](https://commit.cool/badge/language/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 许可证](https://commit.cool/badge/license/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB 存储用量](https://commit.cool/badge/usage/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB Git 存储](https://commit.cool/badge/usage/git/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard) [![CNB LFS 存储](https://commit.cool/badge/usage/lfs/dtapp/dsh-git-guard)](https://cnb.cool/dtapp/dsh-git-guard)
 
 代码仓库：https://cnb.cool/dtapp/dsh-git-guard ；npm 包发布在 CNB 制品库 `https://npm.cnb.cool/dtapp/dsh/-/packages/`（包名 `@dtapp/dsh-git-guard`，公开可读，无需登录或 token）。
-
-同名包也发布在 npm 公共源，安装方式见 [README.npm.md](README.npm.md)；本页安装步骤针对 CNB 制品库。
 
 ## 安装到 DeepSeekHarness
 
 ### 前置：一次配置 scope 源（重要）
 
-本页索引与发布都指向 CNB 制品库。同名包虽然也在 npm 公共源发布，但 npmmirror 等镜像同步有延迟，profile 的 pnpm 默认源若是 npmmirror，安装与依赖校验可能取不到这个包或取到旧版本，报 `ERR_PNPM_FETCH_404` / `Lockfile failed supply-chain policy check`。这是 pnpm 校验 lockfile 时按包名回源取证，不是网络故障，也不是需要登录。
+本页的包与索引都在 CNB 制品库。profile 的 pnpm 默认源若不是 CNB（例如 npmmirror 等镜像），安装与依赖校验会去那里找这个包，找不到或版本滞后就会报 `ERR_PNPM_FETCH_404` / `Lockfile failed supply-chain policy check`。这是 pnpm 校验 lockfile 时按包名回源取证，不是网络故障，也不是需要登录。
 
 最稳的做法是在 profile 的 `.npmrc` 里给 `@dtapp` scope 指定 CNB 地址（只影响本 scope，不动其他依赖）：
 
