@@ -88,13 +88,48 @@ jobs:
             echo "${key}=${value}" >> "$GITHUB_OUTPUT"
           done < .version.env
 
+      # 包版本不可变：已存在则整个发布流程跳过（工作流仍为成功）。
+      - name: 检查包版本是否已存在
+        id: version_exists
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          set +e
+          npm view "${PUBLISH_NAME}@${VERSION}" version --registry "$PUBLISH_REGISTRY" >/dev/null 2>&1
+          rc=$?
+          set -e
+          if [ "$rc" -eq 0 ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 包版本已存在，跳过发布
+        if: steps.version_exists.outputs.exists == 'true'
+        shell: bash
+        run: echo "::notice::包版本已存在，跳过后续发布步骤"
+
+      # 重跑同一版本时先删掉旧的 Release 与 tag，保证下面能重新创建。
+      - name: 删除同名旧 Release 与 tag（如果存在）
+        if: steps.version_exists.outputs.exists != 'true'
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_TO_DELETE: ${{ steps.version.outputs.TAG }}
+        run: sh scripts/ci/delete-release.sh --platform github --tag "$TAG_TO_DELETE"
+
       - name: 插件逻辑自检
+        if: steps.version_exists.outputs.exists != 'true'
         run: node test.mjs
 
       - name: 辅助脚本自检
+        if: steps.version_exists.outputs.exists != 'true'
         run: node test-setup-registry.mjs
 
       - name: 创建标签
+        if: steps.version_exists.outputs.exists != 'true'
         shell: bash
         env:
           TAG: ${{ steps.version.outputs.TAG }}
@@ -102,19 +137,42 @@ jobs:
         run: bash scripts/ci/nightly-tag.sh
 
       - name: 写入版本号与 GitHub Packages 包名
+        if: steps.version_exists.outputs.exists != 'true'
         shell: bash
         env:
           PACKAGE_VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
           node -e "const fs=require('fs');const p=require('./package.json');p.version=process.env.PACKAGE_VERSION;p.name=process.env.PUBLISH_NAME;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
 
+      # GitHub Packages 上的包内 README 用 GitHub 版；仓库里的 README.md 不变。
+      - name: 使用 README.github.md 覆盖 README.md
+        if: steps.version_exists.outputs.exists != 'true'
+        shell: bash
+        run: cp README.github.md README.md
+
       - name: 发布到 GitHub Packages
+        if: steps.version_exists.outputs.exists != 'true'
         shell: bash
         env:
           DIST_TAG: ${{ steps.version.outputs.DIST_TAG }}
-        run: npm publish --tag "$DIST_TAG" --registry "$PUBLISH_REGISTRY"
+        run: |
+          set +e
+          out="$(npm publish --tag "$DIST_TAG" --registry "$PUBLISH_REGISTRY" 2>&1)"
+          rc=$?
+          set -e
+          printf '%s\n' "$out"
+          if [ "$rc" -eq 0 ]; then
+            exit 0
+          fi
+          # npm 包版本不可变；同版本重跑时 tag / Release 已重建，包沿用已发布的即可。
+          if printf '%s' "$out" | grep -Eqi 'previously published|already exists|existing version|409 conflict|E409'; then
+            echo "::warning::包版本已存在，npm 不支持覆盖，沿用已发布版本"
+            exit 0
+          fi
+          exit "$rc"
 
       - name: 创建 Release
+        if: steps.version_exists.outputs.exists != 'true'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.TAG }}
@@ -127,7 +185,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 清理旧 nightly Release（保留 3 个）
-        if: steps.version.outputs.CHANNEL == 'nightly'
+        if: steps.version_exists.outputs.exists != 'true' && steps.version.outputs.CHANNEL == 'nightly'
         continue-on-error: true
         shell: bash
         env:

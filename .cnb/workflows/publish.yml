@@ -50,27 +50,70 @@ stages: &publish_stages
       DIST_TAG: DIST_TAG
       PRERELEASE: PRERELEASE
 
+  # 包版本不可变：已存在则整个发布流程跳过（工作流仍为成功）。
+  - name: 检查包版本是否已存在
+    image: node:26
+    script: |
+      EXISTS="$(node -e '
+        const name = process.env.PUBLISH_NAME;
+        const version = process.env.VERSION;
+        const registry = process.env.PUBLISH_REGISTRY.replace(/\/+$/, "") + "/";
+        const url = registry + name.replace(/\//g, "%2F");
+        fetch(url, { headers: { accept: "application/json", authorization: `Bearer ${process.env.CNB_TOKEN}` } })
+          .then(r => (r.ok ? r.json() : {}))
+          .then(j => process.stdout.write(j.versions && j.versions[version] ? "true" : "false"))
+          .catch(() => process.stdout.write("false"));
+      ')"
+      echo "$EXISTS"
+    exports:
+      VERSION_EXISTS: EXISTS
+
+  - name: 包版本已存在，跳过发布
+    image: node:26
+    if: |
+      [ "$VERSION_EXISTS" = "true" ]
+    script: echo "包版本已存在，跳过后续步骤"
+
+  # 重跑同一版本时先删掉旧的 Release 与 tag，保证下面能重新创建。
+  # tag 也可能已经被删过，这里允许失败，不阻断发布。
+  - name: 删除同名旧 Release 与 tag（如果存在）
+    image: node:26
+    if: |
+      [ "$VERSION_EXISTS" != "true" ]
+    allowFailure: true
+    script: sh scripts/ci/delete-release.sh --platform cnb --tag "$TAG"
+
   - name: 自检
     image: node:26
+    if: |
+      [ "$VERSION_EXISTS" != "true" ]
     script: node test.mjs
 
   - name: 创建 nightly 标签
     image: node:26
+    if: |
+      [ "$VERSION_EXISTS" != "true" ]
     script: bash scripts/ci/nightly-tag.sh
 
   - name: 写入版本号与包名到 package.json
     image: node:26
+    if: |
+      [ "$VERSION_EXISTS" != "true" ]
     script: |
       node -e "const fs=require('fs');const p=require('./package.json');p.version=process.env.VERSION;p.name=process.env.PUBLISH_NAME;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
 
   # 提前把 scope 映射写进工作区 .npmrc，让发布插件按统一 registry 解析 @dtapp 包。
   - name: 配置 npm scope
     image: node:26
+    if: |
+      [ "$VERSION_EXISTS" != "true" ]
     script: |
       printf '%s:registry=%s\n' "$PUBLISH_SCOPE" "$PUBLISH_REGISTRY" > .npmrc
 
   - name: 发布到制品库
     image: tencentcom/npm
+    if: |
+      [ "$VERSION_EXISTS" != "true" ]
     settings:
       username: $CNB_TOKEN_USER_NAME
       token: $CNB_TOKEN
@@ -79,10 +122,13 @@ stages: &publish_stages
       folder: ./
       tag: $DIST_TAG
       access: public
-      fail_on_version_conflict: true
+      # 同版本重跑不因制品库已有该版本而中断；tag / Release 已在上一步重建。
+      fail_on_version_conflict: false
 
   - name: 创建 Release
     image: node:26
+    if: |
+      [ "$VERSION_EXISTS" != "true" ]
     script: bash scripts/ci/create-release.sh
 
   # 与 GitHub 发布流程共用 scripts/ci/delete-release.sh：只清 nightly，保留最新 3 个。
@@ -90,7 +136,7 @@ stages: &publish_stages
   - name: 清理旧 nightly Release（保留 3 个）
     image: node:26
     if: |
-      [ "$CHANNEL" = "nightly" ]
+      [ "$VERSION_EXISTS" != "true" ] && [ "$CHANNEL" = "nightly" ]
     allowFailure: true
     script: |
       command -v jq >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq jq)
@@ -102,7 +148,7 @@ stages: &publish_stages
     image: cnbcool/cnb-cli
     # NPC_ENABLED=false 时整段不执行（不触发 NPC）；变量由 pipeline 层 imports 提供。
     if: |
-      [ "$NPC_ENABLED" = "true" ]
+      [ "$VERSION_EXISTS" != "true" ] && [ "$NPC_ENABLED" = "true" ]
     allowFailure: true
     script: |
       sh .cnb/scripts/request-index-update.sh "$VERSION"

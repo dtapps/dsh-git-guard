@@ -20,8 +20,8 @@ msg() {
     zh:tag_exists_moving) printf '==> 标签 %s 已存在，将移动到 %s\n' "$@" ;;
     en:creating_tag) printf '==> creating tag %s -> %s\n' "$@" ;;
     zh:creating_tag) printf '==> 创建标签 %s -> %s\n' "$@" ;;
-    en:dry_run_push) printf '[dry-run] git push origin refs/tags/%s\n' "$@" ;;
-    zh:dry_run_push) printf '[dry-run] git push origin refs/tags/%s\n' "$@" ;;
+    en:dry_run_push) printf '[dry-run] git push --force origin refs/tags/%s\n' "$@" ;;
+    zh:dry_run_push) printf '[dry-run] git push --force origin refs/tags/%s\n' "$@" ;;
     en:pushed_tag) printf '==> pushed tag %s\n' "$@" ;;
     zh:pushed_tag) printf '==> 已推送标签 %s\n' "$@" ;;
   esac
@@ -49,6 +49,6 @@ fi
 if [ "$DRY_RUN" = "1" ]; then
   msg dry_run_push "$TAG"
 else
-  git push origin "refs/tags/${TAG}"
+  git push --force origin "refs/tags/${TAG}"
   msg pushed_tag "$TAG"
 fi
