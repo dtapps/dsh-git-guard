@@ -73,6 +73,7 @@ jobs:
       - name: 切换到指定提交
         shell: bash
         run: |
+          set -euo pipefail
           if [ -n "${{ inputs.commit }}" ]; then
             echo "built from ${{ inputs.commit }}"
           else
@@ -96,6 +97,7 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
+          set -euo pipefail
           set +e
           npm view "${PUBLISH_NAME}@${VERSION}" version --registry "$PUBLISH_REGISTRY" >/dev/null 2>&1
           rc=$?
@@ -143,6 +145,7 @@ jobs:
         env:
           PACKAGE_VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
+          set -euo pipefail
           node -e "const fs=require('fs');const p=require('./package.json');p.version=process.env.PACKAGE_VERSION;p.name=process.env.PUBLISH_NAME;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
 
       # GitHub Packages 上的包内 README 用 GitHub 版；仓库里的 README.md 不变。
@@ -169,6 +172,7 @@ jobs:
           TAG: ${{ steps.version.outputs.TAG }}
           REPO_URL: https://github.com/${{ github.repository }}
         run: |
+          set -euo pipefail
           export COMMIT_URL="${REPO_URL}/commit"
           {
             echo "## 安装"
@@ -185,7 +189,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.TAG }}
-          name: ${{ steps.version.outputs.TAG }}
+          name: DSHGitGuard ${{ steps.version.outputs.TAG }}
           prerelease: ${{ steps.version.outputs.PRERELEASE == 'true' }}
           body_path: release_body.md
         env:
@@ -206,6 +210,7 @@ jobs:
         env:
           DIST_TAG: ${{ steps.version.outputs.DIST_TAG }}
         run: |
+          set -euo pipefail
           set +e
           out="$(npm publish --tag "$DIST_TAG" --registry "$PUBLISH_REGISTRY" 2>&1)"
           rc=$?
@@ -224,28 +229,27 @@ jobs:
       # 发布后重建索引，用 Golang 镜像格式化，再创建 PR + 自动批准 + 合并。
       - name: 重建插件市场索引
         if: steps.version_exists.outputs.exists != 'true'
-        continue-on-error: true
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/ci/update-index-pr.mjs --platform=github --build-only
 
-      - name: 格式化索引
-        if: steps.version_exists.outputs.exists != 'true'
-        continue-on-error: true
-        shell: bash
-        run: |
-          docker run --rm \
-            --user "$(id -u):$(id -g)" \
-            -e HOME=/tmp \
-            -v "$GITHUB_WORKSPACE:/workspace" \
-            -w /workspace \
-            ghcr.io/dtapps/golang \
-            make format
+      # - name: 格式化索引
+      #   if: steps.version_exists.outputs.exists != 'true'
+      #   continue-on-error: true
+      #   shell: bash
+      #   run: |
+      #     set -euo pipefail
+      #     docker run --rm \
+      #       --user "$(id -u):$(id -g)" \
+      #       -e HOME=/tmp \
+      #       -v "$GITHUB_WORKSPACE:/workspace" \
+      #       -w /workspace \
+      #       ghcr.io/dtapps/golang \
+      #       make format
 
       - name: 创建索引更新 PR 并自动批准
         if: steps.version_exists.outputs.exists != 'true'
-        continue-on-error: true
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

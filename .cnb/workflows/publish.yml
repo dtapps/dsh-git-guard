@@ -32,6 +32,7 @@ stages: &publish_stages
   - name: 切换到指定提交
     image: node:26
     script: |
+      set -e
       if [ -n "${COMMIT:-}" ]; then
         git fetch --depth=1 origin "${COMMIT}"
         git checkout --detach "${COMMIT}"
@@ -54,6 +55,7 @@ stages: &publish_stages
   - name: 检查包版本是否已存在
     image: node:26
     script: |
+      set -e
       EXISTS="$(node -e '
         const name = process.env.PUBLISH_NAME;
         const version = process.env.VERSION;
@@ -110,6 +112,7 @@ stages: &publish_stages
     if: |
       [ "$VERSION_EXISTS" != "true" ]
     script: |
+      set -e
       node -e "const fs=require('fs');const p=require('./package.json');p.version=process.env.VERSION;p.name=process.env.PUBLISH_NAME;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
 
   # 提前把 scope 映射写进工作区 .npmrc，让发布插件按统一 registry 解析 @dtapp 包。
@@ -118,6 +121,7 @@ stages: &publish_stages
     if: |
       [ "$VERSION_EXISTS" != "true" ]
     script: |
+      set -e
       printf '%s:registry=%s\n' "$PUBLISH_SCOPE" "$PUBLISH_REGISTRY" > .npmrc
 
   # Release 正文：README 的安装用法 + release-changelog.sh 生成的变更内容。
@@ -126,10 +130,10 @@ stages: &publish_stages
     if: |
       [ "$VERSION_EXISTS" != "true" ]
     script: |
+      set -e
       REPO_URL="https://cnb.cool/${CNB_REPO_SLUG}"
       COMMIT_URL="${REPO_URL}/-/commit"
-      PKG_NAME="$(node -p "require('./package.json').name")"
-      RELEASE_TITLE="${PKG_NAME} ${TAG}"
+      RELEASE_TITLE="DSHGitGuard ${TAG}"
       if [ "$PRERELEASE" = "false" ]; then MAKE_LATEST=true; else MAKE_LATEST=false; fi
       export COMMIT_URL REPO_URL RELEASE_TITLE MAKE_LATEST
       echo "##[set-output RELEASE_TITLE=${RELEASE_TITLE}]"
@@ -167,6 +171,7 @@ stages: &publish_stages
       [ "$VERSION_EXISTS" != "true" ] && [ "$CHANNEL" = "nightly" ]
     allowFailure: true
     script: |
+      set -e
       command -v jq >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq jq)
       sh scripts/ci/delete-release.sh --platform cnb --keep 3
 
@@ -190,22 +195,21 @@ stages: &publish_stages
     image: node:26
     if: |
       [ "$VERSION_EXISTS" != "true" ]
-    allowFailure: true
     script: node scripts/ci/update-index-pr.mjs --platform=cnb --build-only
 
-  - name: 格式化索引
-    image: docker.cnb.cool/dtapp/golang
-    if: |
-      [ "$VERSION_EXISTS" != "true" ]
-    allowFailure: true
-    script: make format
+  # - name: 格式化索引
+  #   image: docker.cnb.cool/dtapp/golang
+  #   if: |
+  #     [ "$VERSION_EXISTS" != "true" ]
+  #   allowFailure: true
+  #   script: make format
 
   - name: 准备索引更新分支
     image: node:26
     if: |
       [ "$VERSION_EXISTS" != "true" ]
-    allowFailure: true
     script: |
+      set -e
       node scripts/ci/update-index-pr.mjs --platform=cnb --prepare-only
       if [ -f .index-pr-branch ]; then
         INDEX_BRANCH="$(cat .index-pr-branch)"
@@ -225,14 +229,8 @@ stages: &publish_stages
       body: |
         发布 $VERSION 后自动重建插件市场索引。
 
-  - name: 批准索引更新 PR
-    image: node:26
-    if: |
-      [ -n "$INDEX_BRANCH" ]
-    allowFailure: true
-    script: node scripts/ci/update-index-pr.mjs --platform=cnb --approve-only
-
 main:
+
   # 每天 00:00 定时构建 nightly；手动则由表单的 version 覆盖。
   'crontab: 0 0 * * *':
     - name: 定时发布 nightly
@@ -244,6 +242,7 @@ main:
       # NPC 开关：npc.yml 提供 NPC_ENABLED=true；改成 false 可全局关闭 NPC 派活。
       imports: https://cnb.cool/dtapp/envs/-/blob/main/npc.yml
       stages: *publish_stages
+
   # 手动执行：version 与 commit 由 .cnb/web_trigger.yml 的 inputs 表单注入。
   web_trigger_nightly:
     - name: 手动发布
@@ -253,7 +252,37 @@ main:
         PUBLISH_REGISTRY: https://npm.cnb.cool/dtapp/dsh/-/packages/
       imports: https://cnb.cool/dtapp/envs/-/blob/main/npc.yml
       stages: *publish_stages
-  # 索引 PR 评审通过后，用官方内置任务自动 squash 合并并删除源分支。
+
+  # 索引 PR 先做确定性校验，再由 NPC「索引审查员」审查并批准；
+  # 分支保护的 NPC 评审要求只能由 NPC 批准来满足。
+  pull_request:
+    - name: 索引更新 PR NPC 审查
+      imports:
+        - https://cnb.cool/dtapp/envs/-/blob/main/npc.yml
+        - https://cnb.cool/dtapp/envs/-/blob/main/dsh-git-guard.yml
+      ifModify:
+        - market/index.json
+      stages:
+        - name: 确定性校验索引与插件逻辑
+          image: node:26
+          script: |
+            set -e
+            node test.mjs
+            node .cnb/scripts/verify-index.mjs
+        - name: NPC 审查并批准
+          if: |
+            [ "$NPC_ENABLED" = "true" ]
+          docker:
+            image: cnbcool/default-npc:latest
+          type: npc:go
+          options:
+            role: 索引审查员
+            systemPrompt: 你是 dsh-git-guard 仓库的自动化审查助手，只审查 market/index.json 的更新，严格遵守角色指令。
+            userPrompt: 请按「索引审查员」的职责审查当前 PR。PR 编号在环境变量 CNB_PULL_REQUEST_IID 中，仓库在 CNB_REPO_SLUG 中，校验通过后按角色指令调用 approve 接口批准，不通过则提交
+              REQUEST_CHANGES 评审。
+            maxTurns: 60
+
+  # 前置条件：main 分支保护必须勾选「需要评审人批准」，否则本事件不会触发。
   pull_request.mergeable:
     - name: 自动合并索引更新 PR
       ifModify:
@@ -264,3 +293,5 @@ main:
           options:
             mergeType: squash
             removeSourceBranch: true
+            ignoreAssignee: true
+
