@@ -52,10 +52,11 @@ npc:
         4. 以上全部通过后，调用 CNB OpenAPI 提交 approve 评审（把 `${CNB_PULL_REQUEST_IID}`
            替换为当前 PR 编号）：
 
+           TOKEN="${NPC_REVIEW_TOKEN:-${CNB_TOKEN}}"
            curl -fsS -X POST \
              "${CNB_API_ENDPOINT:-https://api.cnb.cool}/${CNB_REPO_SLUG}/-/pulls/${CNB_PULL_REQUEST_IID}/reviews" \
              -H 'Accept: application/vnd.cnb.api+json' \
-             -H "Authorization: Bearer ${CNB_TOKEN}" \
+             -H "Authorization: Bearer ${TOKEN}" \
              -H 'Content-Type: application/json' \
              -d '{"event":"approve","body":"索引结构、registry 一致性校验通过，自动批准。","work_mode":true}'
 
