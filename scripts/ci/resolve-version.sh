@@ -1,35 +1,37 @@
 #!/usr/bin/env bash
-# Resolve the version to publish from the `version` input.
+# 根据输入的 version 解析出要发布的版本号。
 #
-# Inputs (environment):
-#   VERSION   raw version input (crontab job env, or an explicitly uppercase input).
-#   version   raw version input from the web_trigger form: CNB injects input keys
-#             verbatim, so `.cnb/web_trigger.yml`'s lowercase `version` arrives as
-#             `$version`, NOT `$VERSION`. `VERSION` wins when both are set.
-#             Defaults to `nightly` when both are unset/empty. One of:
-#             1.2.3                    stable
-#             1.2.3-rc.1               prerelease, channel rc
-#             1.2.3-beta.1             prerelease, channel beta
-#             1.2.3-alpha.1            prerelease, channel alpha
-#             1.2.3-nightly.20260101   prerelease, channel nightly
-#             nightly                  expands to <latest stable + 1 patch>-nightly.<UTC date>
-#   SCOPE     package scope (derived from package.json; rarely needs overriding)
-# Outputs (written to $GITHUB_OUTPUT-style file given by OUTPUT_FILE, default .version.env):
-#   VERSION       normalized semver without the leading `v` (e.g. 0.2.8-nightly.20261114)
-#   TAG           git tag name (e.g. v0.2.8-nightly.20261114)
-#   CHANNEL       one of: stable | rc | beta | alpha | nightly
-#   DIST_TAG      npm dist-tag to publish under (latest for stable, else the channel)
-#   PRERELEASE    true for any prerelease channel, false for stable
+# 环境变量输入：
+#   VERSION   原始版本输入（crontab 任务的 env，或显式指定的大写变量）。
+#   version   web_trigger 表单注入的小写输入：CNB 按 input key 原样注入环境变量，
+#             所以 .cnb/web_trigger.yml 里的小写 `version` 到达脚本时是 $version，
+#             而不是 $VERSION。两者同时存在时以 $VERSION 为准；都没填则默认 nightly。
+#             取值之一：
+#             1.2.3                    正式版
+#             1.2.3-rc.1               预发布（rc 渠道）
+#             1.2.3-beta.1             预发布（beta 渠道）
+#             1.2.3-alpha.1            预发布（alpha 渠道）
+#             1.2.3-nightly.20260101   预发布（nightly 渠道）
+#             nightly                  展开为 <最新正式版 + 1 补丁>-nightly.<日期>；
+#                                      日期跟随调度器时区：CNB 用北京时间（内置变量
+#                                      CNB 的值为 true），GitHub Actions 用 UTC。
+#   SCOPE     包 scope（从 package.json 推导，一般无需覆盖）
+# 输出（写入 $GITHUB_OUTPUT 风格的文件，默认 .version.env）：
+#   VERSION       规范化后的 semver，不带前导 v（如 0.2.8-nightly.20261114）
+#   TAG           git 标签名（如 v0.2.8-nightly.20261114）
+#   CHANNEL       stable | rc | beta | alpha | nightly 之一
+#   DIST_TAG      npm dist-tag：正式版为 latest，其余为对应渠道
+#   PRERELEASE    任意预发布渠道为 true，正式版为 false
 #
-# Package name comes from package.json and CNB built-in env vars (see
-# https://docs.cnb.cool/zh/build/build-in-env.md):
-#   * package name / scope : read from package.json (authoritative), falling back to
-#                            CNB_REPO_NAME_LOWERCASE / CNB_GROUP_SLUG_LOWERCASE
-#   * artifact repo path   : shared `dtapp/dsh` registry (NOT the git repo path —
-#                            code repo is dsh-git-guard, artifact repo is dsh),
-#                            hardcoded here and in .cnb.yml `publish.registry`
-# The registry is only needed to look up the latest stable for `nightly` expansion;
-# publishing itself is done by the tencentcom/npm plugin, not here.
+# 包名来自 package.json 与 CNB 内置环境变量（见
+# https://docs.cnb.cool/zh/build/build-in-env.md）：
+#   * 包名 / scope：以 package.json 为准，兜底用 CNB_REPO_NAME_LOWERCASE /
+#     CNB_GROUP_SLUG_LOWERCASE
+#   * 制品库路径：共用的 dtapp/dsh 制品库（不是 git 仓库路径——代码仓库叫
+#     dsh-git-guard，制品库叫 dsh），不能由 CNB_REPO_SLUG 推导，这里和
+#     .cnb.yml 的 publish.registry 都写死。
+# 访问制品库只是为了查 nightly 的基准版本；发布本身由 tencentcom/npm 插件完成，
+# 不在这里做。
 set -euo pipefail
 
 # 输出语言：优先 DSH_LANG，否则按 LC_ALL > LC_MESSAGES > LANG 自动判断。
@@ -135,12 +137,24 @@ bump_patch() {
   echo "${maj}.${min}.$((pat + 1))"
 }
 
+# Nightly 日期跟随调度器时区，避免跨零点时算出昨天的日期：
+#   CNB（内置变量 CNB 的值为 true）：crontab 按 Asia/Shanghai 触发，用北京时间（UTC+8）。
+#   GitHub Actions（GITHUB_ACTIONS=true）与本地：schedule 按 UTC 触发，用 UTC。
+nightly_date() {
+  if [ "${CNB:-}" = "true" ]; then
+    # 用 Node 做固定 +8 偏移，避免依赖镜像里的 tzdata。
+    node -e 'const d=new Date(Date.now()+8*3600*1000);process.stdout.write(d.toISOString().slice(0,10).replace(/-/g,""))'
+  else
+    date -u +%Y%m%d
+  fi
+}
+
 if [ "$raw" = "nightly" ]; then
   base="$(latest_stable "$NPM_REGISTRY" "$PKG_NAME")"
   case "$base" in
     *[-]*) base="$(echo "$base" | sed 's/-.*//')" ;;
   esac
-  VERSION="$(bump_patch "$base")-nightly.$(date -u +%Y%m%d)"
+  VERSION="$(bump_patch "$base")-nightly.$(nightly_date)"
 elif [ -z "$raw" ]; then
   msg version_required >&2
   exit 1
