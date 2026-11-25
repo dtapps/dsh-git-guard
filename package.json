@@ -1,12 +1,14 @@
 {
-  "name": "@dtapp/dsh-git-guard",
-  "version": "1.0.0",
   "description": "在工具策略层阻止 agent 自行执行 git commit、push 等 git 写操作，只读 git 命令仍可用。",
-  "type": "module",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
   "exports": {
     ".": "./index.js",
-    "./locale/*.json": "./locale/*.json",
-    "./icon": "./icon.svg"
+    "./icon": "./icon.svg",
+    "./locale/*.json": "./locale/*.json"
   },
   "files": [
     "index.js",
@@ -15,17 +17,6 @@
     "icon.svg",
     "README.md"
   ],
-  "scripts": {
-    "test": "node test.mjs",
-    "prepublishOnly": "node test.mjs"
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://cnb.cool/dtapp/dsh-git-guard"
-  },
   "keywords": [
     "deepseek-harness",
     "dsh",
@@ -34,10 +25,19 @@
     "tool-policy"
   ],
   "license": "MIT",
+  "name": "@dtapp/dsh-git-guard",
   "private": false,
-  "dsh": {
-    "bundle": {
-      "patch": "./cordis.patch.yml"
-    }
-  }
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://cnb.cool/dtapp/dsh-git-guard"
+  },
+  "scripts": {
+    "prepublishOnly": "node test.mjs",
+    "test": "node test.mjs"
+  },
+  "type": "module",
+  "version": "1.0.0"
 }
