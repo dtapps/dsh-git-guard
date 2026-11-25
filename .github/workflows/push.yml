@@ -3,7 +3,6 @@
 # 检出后直接用 Node 26 跑 test.mjs（插件逻辑自检），外加辅助脚本自检。
 #
 # https://github.com/actions/checkout
-# https://github.com/actions/setup-node
 name: Push 自检
 
 on:
@@ -23,14 +22,23 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-26.04
+    container:
+      image: ghcr.io/dtapps/golang:latest
     steps:
       - name: 检出代码
         uses: actions/checkout@v7
 
-      - name: 安装 Node.js
-        uses: actions/setup-node@v7
+      # 缓存同步下来的模板脚本；key 绑定仓库内脚本内容，脚本一改就换新缓存，
+      # 避免旧缓存把已跟踪脚本（如 resolve-prerelease.sh）恢复成旧版本。
+      - name: 缓存脚本
+        uses: actions/cache@v6
         with:
-          node-version: '26'
+          path: scripts/ci
+          key: ci-scripts-${{ hashFiles('scripts/ci/**') }}
+
+      - name: 同步脚本
+        shell: bash
+        run: make fetch-scripts
 
       - name: 插件逻辑自检
         run: node test.mjs

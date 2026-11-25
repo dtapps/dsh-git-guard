@@ -3,8 +3,19 @@
 # 由 .cnb.yml 的 include 引入。
 main:
   push:
-    - name: Push 自检
+    - name: 自检
+      runner:
+        tags: cnb:arch:amd64 # 指定 Runner 必须有这个标签
+      docker:
+        image: docker.cnb.cool/dtapp/golang:latest # 统一使用预构建的 CI 环境镜像
+        volumes:
+          - ./scripts/ci:copy-on-write # 模板脚本缓存；卷会整体挂载该目录，同步前需先还原跟踪文件
       stages:
+        - name: 同步脚本
+          script: |
+            # 卷会整体挂载 scripts/ci，先把本次提交里跟踪的脚本还原（未跟踪的模板脚本由缓存/下载提供）
+            git checkout -- scripts/ci
+            make fetch-scripts
         - name: 插件逻辑自检
           image: node:26
           script: node test.mjs

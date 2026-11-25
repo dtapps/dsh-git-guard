@@ -59,7 +59,7 @@ format-shell:
 
 # 格式化/修复项目
 .PHONY: format
-format: format-yaml format-json format-json5 format-sql format-markdown format-docker format-shell
+format: fetch-scripts format-yaml format-json format-json5 format-sql format-markdown format-docker format-shell
 
 #####################
 ## 更新 / 拉取 / 推送 相关
@@ -119,3 +119,12 @@ push:
 push-force:
 	@IFS=,; for r in $$GIT_REMOTE; do git push --force "$$r" HEAD || exit 1; done
 	@echo "强制推送完成！"
+
+#####################
+## 同步 相关
+#####################
+
+.PHONY: fetch-scripts
+fetch-scripts: ## 同步 CI 模板脚本（缺失下载，sha256 不同则更新）
+	@echo "[Scripts] 同步 CI 模板脚本..."
+	sh scripts/ci/fetch-scripts.sh

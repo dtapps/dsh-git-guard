@@ -35,13 +35,13 @@
 #      read and write (publish and stage) + Bypass 2FA；stage-only 发不了正式版。
 #      2027-01 起 granular token 的直接发布能力将被移除，所以最终要删掉这个 secret。
 #
-# 发布方式：GitHub 没有官方 npm 发布 action，官方文档给的就是「setup-node 带
-# registry-url 写 .npmrc + npm publish」，所以这里也用这套；第三方 action
-# （JS-DevTools/npm-publish 等）只是把这行 shell 包一层，还要多背一个供应链依赖，
-# 而且表达不了下面「版本已存在就告警放过」的容错。
+# 发布方式：GitHub 没有官方 npm 发布 action，官方文档给的就是「把 registry 与
+# _authToken 写进 .npmrc + npm publish」。这里跑在容器镜像里（自带 Node/npm），
+# 所以不用 setup-node，直接手写 .npmrc；第三方 action（JS-DevTools/npm-publish 等）
+# 只是把这行 shell 包一层，还要多背一个供应链依赖，而且表达不了下面
+# 「版本已存在就告警放过」的容错。
 #
 # https://github.com/actions/checkout
-# https://github.com/actions/setup-node
 name: Release Public NPM
 
 on:
@@ -92,8 +92,10 @@ concurrency:
 jobs:
   publish-npm:
     runs-on: ubuntu-26.04
+    container:
+      image: ghcr.io/dtapps/golang:latest
     env:
-      # setup-node 会把 //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN} 写进 .npmrc。
+      # 下面「配置 npm 认证与发布源」会把 //registry.npmjs.org/:_authToken 写进 .npmrc。
       # 这是过渡期的 fallback：npm 会优先用 OIDC（trusted publishing），失败才用 token。
       # 包在 npmjs 侧绑好 trusted publisher 后，删掉 secrets.NPM_TOKEN 即彻底走 OIDC。
       NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -104,12 +106,37 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.commit || github.sha }}
 
-      - name: 安装 Node.js
-        uses: actions/setup-node@v7
+      # 缓存同步下来的模板脚本；key 绑定仓库内脚本内容，脚本一改就换新缓存，
+      # 避免旧缓存把已跟踪脚本（如 resolve-prerelease.sh）恢复成旧版本。
+      - name: 缓存脚本
+        uses: actions/cache@v6
         with:
-          node-version: '26'
-          # 发布源直接交给 setup-node 写进 .npmrc（等同 npm config set registry）。
-          registry-url: ${{ env.NPMJS_REGISTRY }}
+          path: scripts/ci
+          key: ci-scripts-${{ hashFiles('scripts/ci/**') }}
+
+      - name: 同步脚本
+        shell: bash
+        run: make fetch-scripts
+
+      # 容器镜像 ghcr.io/dtapps/golang 自带 Node/npm，不再用 setup-node 重复安装。
+      # setup-node 的 registry-url 只做两件事，这里手写等价内容：写 registry 行，
+      # 以及 //host/:_authToken=${NODE_AUTH_TOKEN}（npm publish 时据此带令牌）。
+      # trusted publishing（OIDC）要求 npm >= 11.5，镜像里的 npm 太旧会静默退回
+      # NPM_TOKEN，所以这里显式打版本并在不满足时告警。
+      - name: 配置 npm 认证与发布源
+        shell: bash
+        run: |
+          set -euo pipefail
+          host="${NPMJS_REGISTRY#https://}"
+          host="${host%/}"
+          npm config set registry "$NPMJS_REGISTRY"
+          npm config set "//${host}/:_authToken" '${NODE_AUTH_TOKEN}'
+          npm_ver="$(npm -v)"
+          echo "npm ${npm_ver} / node $(node -v)"
+          if [ "$(printf '%s\n11.5.0\n' "$npm_ver" | sort -V | head -1)" != "11.5.0" ]; then
+            echo "::warning::镜像内 npm ${npm_ver} < 11.5，trusted publishing（OIDC）不可用，将回退 secrets.NPM_TOKEN"
+          fi
+          cat "$HOME/.npmrc"
 
       # 版本号一律以调用方传入的为准（Release 算好的那个），不再从 tag 反推。
       - name: 解析版本
@@ -174,7 +201,7 @@ jobs:
           echo "将要发布：$(node -p "require('./package.json').name + '@' + require('./package.json').version")"
           echo "包内 README.md：$(wc -c < README.md) 字节"
 
-      # registry 与 _authToken 由 setup-node 写进 .npmrc，这里只负责发布与容错。
+      # registry 与 _authToken 已由上面那步写进 .npmrc，这里只负责发布与容错。
       - name: 发布到 npm 公共源
         if: steps.version_exists.outputs.exists != 'true'
         shell: bash

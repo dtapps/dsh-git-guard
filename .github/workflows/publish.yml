@@ -14,7 +14,6 @@
 # workflow_run 等这条工作流成功后，再把同一版本发到 npm 公共源。
 #
 # https://github.com/actions/checkout
-# https://github.com/actions/setup-node
 # https://github.com/softprops/action-gh-release
 name: Release Package
 
@@ -56,6 +55,8 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-26.04
+    container:
+      image: ghcr.io/dtapps/golang:latest
     # 解析出的版本号传给下面的 publish-npm（workflow_call），保证两边发的是同一个版本。
     outputs:
       version: ${{ steps.version.outputs.VERSION }}
@@ -71,15 +72,33 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.commit || github.sha }}
 
-      - name: 安装 Node.js
-        uses: actions/setup-node@v7
+      # 缓存同步下来的模板脚本；key 绑定仓库内脚本内容，脚本一改就换新缓存，
+      # 避免旧缓存把已跟踪脚本（如 resolve-prerelease.sh）恢复成旧版本。
+      - name: 缓存脚本
+        uses: actions/cache@v6
         with:
-          node-version: '26'
-          registry-url: ${{ env.PUBLISH_REGISTRY }}
+          path: scripts/ci
+          key: ci-scripts-${{ hashFiles('scripts/ci/**') }}
 
-      - name: 配置发布 scope 指向 GitHub Packages
+      - name: 同步脚本
         shell: bash
-        run: npm config set "${PUBLISH_SCOPE}:registry" "$PUBLISH_REGISTRY"
+        run: make fetch-scripts
+
+      # 容器镜像 ghcr.io/dtapps/golang 自带 Node/npm，不再用 setup-node 重复安装。
+      # setup-node 的 registry-url 其实只做两件事，这里手写等价内容：
+      #   1. 往 .npmrc 写 registry / @scope:registry，指定发布源；
+      #   2. 写 //host/:_authToken=${NODE_AUTH_TOKEN}，npm publish 时据此带令牌。
+      - name: 配置 npm 认证与发布 scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          host="${PUBLISH_REGISTRY#https://}"
+          host="${host%/}"
+          npm config set registry "$PUBLISH_REGISTRY"
+          npm config set "${PUBLISH_SCOPE}:registry" "$PUBLISH_REGISTRY"
+          npm config set "//${host}/:_authToken" '${NODE_AUTH_TOKEN}'
+          echo "npm $(npm -v) / node $(node -v)"
+          cat "$HOME/.npmrc"
 
       - name: 切换到指定提交
         shell: bash
