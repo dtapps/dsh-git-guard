@@ -1,9 +1,13 @@
 {
+  "format": 1,
+  "title": {
+    "en": "dtapp plugins (GitHub Packages)",
+    "zh": "dtapp 插件（GitHub Packages）"
+  },
   "description": {
     "en": "Plugins published by dtapp to GitHub Packages.",
     "zh": "dtapp 发布在 GitHub Packages 的插件。"
   },
-  "format": 1,
   "metadata": {
     "categories": {
       "tools": {
@@ -18,11 +22,19 @@
   },
   "plugins": [
     {
+      "name": "@dtapps/dsh-git-guard",
+      "title": {
+        "en": "Git write guard",
+        "zh": "Git 写操作防护"
+      },
       "description": {
         "en": "Blocks agent-initiated git commit, push, tag, merge, rebase, reset, and similar write operations across bash, pwsh, run_code, and terminal sessions, while leaving read-only git commands available.",
         "zh": "在 bash、pwsh、run_code 与终端会话中阻止 agent 自行执行 git commit、push、tag、merge、rebase、reset 等写操作，只读 git 命令仍可用。"
       },
       "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPHJlY3QgeD0iNCIgeT0iNCIgd2lkdGg9IjU2IiBoZWlnaHQ9IjU2IiByeD0iMTQiIGZpbGw9IiMxZjI5MzciLz4KICA8Y2lyY2xlIGN4PSIyMiIgY3k9IjIwIiByPSI2IiBmaWxsPSJub25lIiBzdHJva2U9IiNmNTllMGIiIHN0cm9rZS13aWR0aD0iNCIvPgogIDxjaXJjbGUgY3g9IjIyIiBjeT0iNDQiIHI9IjYiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2Y1OWUwYiIgc3Ryb2tlLXdpZHRoPSI0Ii8+CiAgPGNpcmNsZSBjeD0iNDIiIGN5PSIzMiIgcj0iNiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZjU5ZTBiIiBzdHJva2Utd2lkdGg9IjQiLz4KICA8cGF0aCBkPSJNMjIgMjZ2MTJNMjggMjBoOGE2IDYgMCAwIDEgNiA2djBNMjggNDRoOGE2IDYgMCAwIDAgNi02djAiIHN0cm9rZT0iI2Y1OWUwYiIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiIGZpbGw9Im5vbmUiLz4KICA8cGF0aCBkPSJNNDYgMTRMNTggMjZNNTggMTRMNDYgMjYiIHN0cm9rZT0iI2VmNDQ0NCIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPC9zdmc+Cg==",
+      "repository": {
+        "url": "https://github.com/dtapps/dsh-git-guard"
+      },
       "metadata": {
         "category": "tools",
         "keywords": [
@@ -36,38 +48,44 @@
         "labels": [],
         "sortKeys": {}
       },
-      "name": "@dtapps/dsh-git-guard",
-      "repository": {
-        "url": "https://github.com/dtapps/dsh-git-guard"
-      },
-      "title": {
-        "en": "Git write guard",
-        "zh": "Git 写操作防护"
-      },
       "versions": [
         {
-          "engines": {},
-          "publishTimestamp": 1795494943,
+          "version": "1.0.6",
+          "publishTimestamp": 1795664844,
           "source": {
-            "registry": "https://npm.pkg.github.com/",
-            "type": "npm"
+            "type": "npm",
+            "registry": "https://npm.pkg.github.com/"
           },
-          "version": "1.0.6-nightly.20261124"
+          "engines": {}
         },
         {
-          "engines": {},
+          "version": "1.0.6-nightly.20261125",
+          "publishTimestamp": 1795575370,
+          "source": {
+            "type": "npm",
+            "registry": "https://npm.pkg.github.com/"
+          },
+          "engines": {}
+        },
+        {
+          "version": "1.0.6-nightly.20261124",
+          "publishTimestamp": 1795494943,
+          "source": {
+            "type": "npm",
+            "registry": "https://npm.pkg.github.com/"
+          },
+          "engines": {}
+        },
+        {
+          "version": "1.0.5",
           "publishTimestamp": 1795493417,
           "source": {
-            "registry": "https://npm.pkg.github.com/",
-            "type": "npm"
+            "type": "npm",
+            "registry": "https://npm.pkg.github.com/"
           },
-          "version": "1.0.5"
+          "engines": {}
         }
       ]
     }
-  ],
-  "title": {
-    "en": "dtapp plugins (GitHub Packages)",
-    "zh": "dtapp 插件（GitHub Packages）"
-  }
+  ]
 }
