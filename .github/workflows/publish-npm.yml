@@ -94,6 +94,8 @@ jobs:
     runs-on: ubuntu-26.04
     container:
       image: ghcr.io/dtapps/golang:latest
+      env:
+        GIT_SHIM_SAFE_DIRECTORY: 'true'
     env:
       # 下面「配置 npm 认证与发布源」会把 //registry.npmjs.org/:_authToken 写进 .npmrc。
       # 这是过渡期的 fallback：npm 会优先用 OIDC（trusted publishing），失败才用 token。
@@ -117,20 +119,6 @@ jobs:
       - name: 同步脚本
         shell: bash
         run: make fetch-scripts
-
-      # 容器工作区是 runner 挂进来的 bind mount（属主是 runner 用户），容器内进程却是 root，
-      - name: 让容器内的 git 可用
-        shell: bash
-        run: |
-          git config --system --add safe.directory '*' 2>/dev/null || true
-          git config --global --add safe.directory "$GITHUB_WORKSPACE" 2>/dev/null || true
-
-          # 结果打进日志：以后一眼能看出这条登记有没有生效
-          if git status --porcelain > /dev/null 2>&1; then
-            echo "✓ 容器内 git 可用，COMMIT=$(git rev-parse --short HEAD)"
-          else
-            echo "⚠️ 容器内 git 仍不可用。"
-          fi
 
       # 容器镜像 ghcr.io/dtapps/golang 自带 Node/npm，不再用 setup-node 重复安装。
       # setup-node 的 registry-url 只做两件事，这里手写等价内容：写 registry 行，

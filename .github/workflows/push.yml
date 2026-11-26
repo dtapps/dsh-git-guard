@@ -24,6 +24,8 @@ jobs:
     runs-on: ubuntu-26.04
     container:
       image: ghcr.io/dtapps/golang:latest
+      env:
+        GIT_SHIM_SAFE_DIRECTORY: 'true'
     steps:
       - name: 检出代码
         uses: actions/checkout@v7

@@ -7,7 +7,7 @@ branch:
   - buttons:
       - name: 发布 npm
         description: 按 version 渠道发布到 npm 制品库并创建 Release
-        event: web_trigger_nightly
+        event: web_trigger_publish
         inputs:
           version:
             name: 版本号

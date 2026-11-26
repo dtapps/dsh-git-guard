@@ -35,7 +35,6 @@ stages: &publish_stages
       make fetch-scripts
 
   - name: 切换到指定提交
-    image: node:26
     script: |
       set -e
       if [ -n "${COMMIT:-}" ]; then
@@ -47,7 +46,6 @@ stages: &publish_stages
       fi
 
   - name: 解析版本
-    image: node:26
     script: bash scripts/ci/resolve-version.sh
     exports:
       VERSION: VERSION
@@ -58,7 +56,6 @@ stages: &publish_stages
 
   # 包版本已存在则跳过后续全部步骤（工作流保持成功）。
   - name: 检查包版本是否已存在
-    image: node:26
     script: |
       set -e
       EXISTS="$(node -e '
@@ -77,7 +74,6 @@ stages: &publish_stages
       VERSION_EXISTS: EXISTS
 
   - name: 包版本已存在，跳过后续步骤
-    image: node:26
     if: |
       [ "$VERSION_EXISTS" = "true" ]
     script: echo "包版本已存在，跳过后续全部步骤"
@@ -85,27 +81,23 @@ stages: &publish_stages
   # 重跑同一版本时先删掉旧的 Release 与 tag，保证下面能重新创建。
   # tag 也可能已经被删过，这里允许失败，不阻断发布。
   - name: 删除同名旧 Release 与 tag（如果存在）
-    image: node:26
     if: |
       [ "$VERSION_EXISTS" != "true" ]
     allowFailure: true
     script: sh scripts/ci/delete-release.sh --platform cnb --tag "$TAG"
 
   - name: 自检
-    image: node:26
     if: |
       [ "$VERSION_EXISTS" != "true" ]
     script: node test.mjs
 
   - name: 创建 nightly 标签
-    image: node:26
     if: |
       [ "$VERSION_EXISTS" != "true" ]
     script: bash scripts/ci/nightly-tag.sh
 
   # CNB 发布内容里的 raw 链接固定到当前 tag，避免用户看到 /main/ 的漂移内容。
   # - name: 把 README 里的 CNB main 链接改成当前版本
-  #   image: node:26
   #   if: |
   #     [ "$VERSION_EXISTS" != "true" ]
   #   script: |
@@ -113,7 +105,6 @@ stages: &publish_stages
   #     rm -f README.md.bak
 
   - name: 写入版本号与包名到 package.json
-    image: node:26
     if: |
       [ "$VERSION_EXISTS" != "true" ]
     script: |
@@ -122,7 +113,6 @@ stages: &publish_stages
 
   # 提前把 scope 映射写进工作区 .npmrc，让发布插件按统一 registry 解析 @dtapp 包。
   - name: 配置 npm scope
-    image: node:26
     if: |
       [ "$VERSION_EXISTS" != "true" ]
     script: |
@@ -131,7 +121,6 @@ stages: &publish_stages
 
   # Release 正文：README 的安装用法 + release-changelog.sh 生成的变更内容。
   - name: 生成 Release 正文
-    image: node:26
     if: |
       [ "$VERSION_EXISTS" != "true" ]
     script: |
@@ -171,7 +160,6 @@ stages: &publish_stages
   # 与 GitHub 发布流程共用 scripts/ci/delete-release.sh：只清 nightly，保留最新 3 个。
   # 清理失败只告警（allowFailure），不能连累已经成功的发布。
   - name: 清理旧 nightly Release（保留 3 个）
-    image: node:26
     if: |
       [ "$VERSION_EXISTS" != "true" ] && [ "$CHANNEL" = "nightly" ]
     allowFailure: true
@@ -197,7 +185,6 @@ stages: &publish_stages
 
   # 发布后重建索引，用 Golang 镜像格式化，再创建 PR + 自动批准 + 合并。
   - name: 重建插件市场索引
-    image: node:26
     if: |
       [ "$VERSION_EXISTS" != "true" ]
     script: node scripts/ci/update-index-pr.mjs --platform=cnb --build-only
@@ -210,7 +197,6 @@ stages: &publish_stages
   #   script: make format
 
   - name: 准备索引更新分支
-    image: node:26
     if: |
       [ "$VERSION_EXISTS" != "true" ]
     script: |
@@ -245,21 +231,25 @@ main:
     - &publish_job
       name: 发布
       env:
+        GIT_SHIM_SAFE_DIRECTORY: 'true'
         PUBLISH_NAME: '@dtapp/dsh-git-guard'
         PUBLISH_SCOPE: '@dtapp'
         PUBLISH_REGISTRY: https://npm.cnb.cool/dtapp/dsh/-/packages/
       runner:
         tags: cnb:arch:amd64 # 指定 Runner 必须有这个标签
+      services:
+        - docker # 启用 Docker 服务（用于 docker build/push）
       docker:
         image: docker.cnb.cool/dtapp/golang:latest # 统一使用预构建的 CI 环境镜像
         volumes:
+          - /root/.local/share/pnpm/store:copy-on-write # pnpm 全局存储 - 加速前端依赖安装
           - ./scripts/ci:copy-on-write # 模板脚本缓存；卷会整体挂载该目录，同步前需先还原跟踪文件
       # NPC 开关：npc.yml 提供 NPC_ENABLED=true；改成 false 可全局关闭 NPC 派活。
       imports: https://cnb.cool/dtapp/envs/-/blob/main/npc.yml
       stages: *publish_stages
 
   # 手动执行：version 与 commit 由 .cnb/web_trigger.yml 的 inputs 表单注入。
-  web_trigger_nightly:
+  web_trigger_publish:
     - *publish_job
 
   # 索引 PR 先做确定性校验，再由 NPC「索引审查员」审查并批准；
