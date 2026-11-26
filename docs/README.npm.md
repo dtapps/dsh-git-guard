@@ -2,7 +2,7 @@
 
 阻止 agent 自行执行 `git commit`、`git push` 等写操作，装到 profile 后对整个 Harness 生效。
 
-[![npm 版本](https://img.shields.io/npm/v/@dtapp/dsh-git-guard?label=npm)](https://www.npmjs.com/package/@dtapp/dsh-git-guard) [![npm 月下载](https://img.shields.io/npm/dm/@dtapp/dsh-git-guard?label=%E6%9C%88%E4%B8%8B%E8%BD%BD)](https://www.npmjs.com/package/@dtapp/dsh-git-guard) [![npm 近18月下载](https://img.shields.io/npm/d18m/@dtapp/dsh-git-guard?label=%E8%BF%9118%E6%9C%88%E4%B8%8B%E8%BD%BD)](https://www.npmjs.com/package/@dtapp/dsh-git-guard) [![许可证](https://img.shields.io/npm/l/@dtapp/dsh-git-guard?label=%E8%AE%B8%E5%8F%AF%E8%AF%81)](https://github.com/dtapps/dsh-git-guard/blob/main/LICENSE) [![安装体积](https://img.shields.io/npm/unpacked-size/@dtapp/dsh-git-guard?label=%E5%AE%89%E8%A3%85%E4%BD%93%E7%A7%AF)](https://www.npmjs.com/package/@dtapp/dsh-git-guard)
+[![npm 版本](https://img.shields.io/npm/v/@dtapp/dsh-git-guard?label=npm)](https://www.npmjs.com/package/@dtapp/dsh-git-guard) [![npm 月下载](https://img.shields.io/npm/dm/@dtapp/dsh-git-guard?label=%E6%9C%88%E4%B8%8B%E8%BD%BD)](https://www.npmjs.com/package/@dtapp/dsh-git-guard) [![npm 近18月下载](https://img.shields.io/npm/d18m/@dtapp/dsh-git-guard?label=%E8%BF%9118%E6%9C%88%E4%B8%8B%E8%BD%BD)](https://www.npmjs.com/package/@dtapp/dsh-git-guard) [![许可证](https://img.shields.io/npm/l/@dtapp/dsh-git-guard?label=%E8%AE%B8%E5%8F%AF%E8%AF%81)](https://github.com/dtapps/dsh-git-guard/blob/main/LICENSE) [![安装体积](https://img.shields.io/npm/unpacked-size/@dtapp/dsh-git-guard?label=%E5%AE%89%E8%A3%85%E4%BD%93%E7%A7%AF)](https://www.npmjs.com/package/@dtapp/dsh-git-guard) [![jsDelivr 月下载](https://data.jsdelivr.com/v1/package/npm/@dtapp/dsh-git-guard/badge)](https://www.jsdelivr.com/package/npm/@dtapp/dsh-git-guard) [![Socket 安全评分](https://socket.dev/api/badge/npm/package/@dtapp/dsh-git-guard)](https://socket.dev/npm/package/@dtapp/dsh-git-guard)
 
 代码仓库：https://github.com/dtapps/dsh-git-guard ；npm 包发布在 npm 公共源 `https://www.npmjs.com/package/@dtapp/dsh-git-guard`（包名 `@dtapp/dsh-git-guard`，公开可读，无需登录或 token）。
 
@@ -67,11 +67,3 @@ node test.mjs   # 44 条应拦截 / 26 条应放行
 ## 许可证
 
 见 [LICENSE](LICENSE) 文件。
-
-## Star 走势
-
-[![Star 走势](https://api.star-history.com/chart?repos=dtapps/dsh-git-guard&type=date&legend=top-left)](https://www.star-history.com/?repos=dtapps%2Fdsh-git-guard&type=date&legend=top-left)
-
-## 下载量统计图
-
-[![下载量统计图](https://release-monitor.com/chart/dtapps/dsh-git-guard.svg?stable=5)](https://release-monitor.com/#/dtapps/dsh-git-guard)
