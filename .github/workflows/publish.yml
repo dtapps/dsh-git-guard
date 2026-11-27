@@ -1,7 +1,7 @@
 # 发布工作流：与 CNB 的 .cnb/workflows/release.yml 对齐。
 # 文件名用 publish.yml，避免与旧 release.yml 的 GitHub 缓存状态冲突。
 # 纯 Node 插件，没有 Go / Wails 构建步骤。两种触发共用同一套步骤：
-#   * 每天 00:05 定时发 nightly（VERSION=nightly 自动展开为 <最新正式版+1补丁>-nightly.<日期>）
+#   * 每天 UTC 00:00 定时发 nightly（VERSION=nightly 自动展开为 <最新正式版+1补丁>-nightly.<日期>）
 #   * workflow_dispatch 手动填 version（semver 或 nightly）与 commit（留空用触发分支 HEAD）
 #
 # version 规则见 scripts/ci/resolve-version.sh。
@@ -19,7 +19,8 @@ name: Release Package
 
 on:
   schedule:
-    - cron: '5 0 * * *'
+    # GitHub 使用 UTC：每天 00:00（北京时间 08:00）。
+    - cron: '0 0 * * *'
   workflow_dispatch:
     inputs:
       version:
@@ -135,8 +136,10 @@ jobs:
           rc=$?
           set -e
           if [ "$rc" -eq 0 ]; then
+            echo "::notice::包版本 ${PUBLISH_NAME}@${VERSION} 已存在，后续发布步骤将跳过"
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
+            echo "包版本 ${PUBLISH_NAME}@${VERSION} 不存在，继续发布"
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -231,6 +234,7 @@ jobs:
       # protect 保住正式版、latest/stable 与 rc/beta/alpha，避免 by_count 误删非 nightly 版本；
       # dry_run 必须显式为 false，否则插件默认只列出待删除版本。
       - name: 清理旧 nightly（只保留最近 3 个）
+        if: steps.version_exists.outputs.exists != 'true'
         uses: dtapps/release-cleaner-action@main
         continue-on-error: true
         with:
@@ -306,6 +310,8 @@ jobs:
 
   # 复制出来的 npm 公共源工作流：Release 跑完后，把上面算好的版本号原样传进去。
   # 用 workflow_call 而不是 workflow_run，是为了避免重新猜版本（tag 反推会取错）。
+  # 不在这里按主包 exists 跳过：npmjs 是独立源，是否已有该版本由 publish-npm.yml
+  # 自己检查并决定跳过，避免外层误跳过导致 npmjs 漏发。
   publish-npm:
     needs: release
     permissions:

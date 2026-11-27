@@ -1,27 +1,30 @@
 # push 自检：每次推送都跑插件逻辑自检（44 条拦截 / 26 条放行）
 # 与辅助脚本自检（setup-registry 的创建/幂等/撤销/自动检测等）。
 # 由 .cnb.yml 的 include 引入。
+.trigger_check: &trigger_check
+  name: 自检
+  runner:
+    tags: cnb:arch:amd64 # 指定 Runner 必须有这个标签
+  services:
+    - docker # 启用 Docker 服务（用于 docker build/push）
+  docker:
+    image: docker.cnb.cool/dtapp/golang:latest # 统一使用预构建的 CI 环境镜像
+    volumes:
+      - /root/.local/share/pnpm/store:copy-on-write # pnpm 全局存储 - 加速前端依赖安装
+      - ./scripts/ci:copy-on-write # 模板脚本缓存；卷会整体挂载该目录，同步前需先还原跟踪文件
+  env:
+    GIT_SHIM_SAFE_DIRECTORY: 'true'
+  stages:
+    - name: 同步脚本
+      script: |
+        # 卷会整体挂载 scripts/ci，先把本次提交里跟踪的脚本还原（未跟踪的模板脚本由缓存/下载提供）
+        git checkout -- scripts/ci
+        make fetch-scripts
+    - name: 插件逻辑自检
+      script: node test.mjs
+    - name: 辅助脚本自检
+      script: node test-setup-registry.mjs
+
 main:
   push:
-    - name: 自检
-      runner:
-        tags: cnb:arch:amd64 # 指定 Runner 必须有这个标签
-      services:
-        - docker # 启用 Docker 服务（用于 docker build/push）
-      docker:
-        image: docker.cnb.cool/dtapp/golang:latest # 统一使用预构建的 CI 环境镜像
-        volumes:
-          - /root/.local/share/pnpm/store:copy-on-write # pnpm 全局存储 - 加速前端依赖安装
-          - ./scripts/ci:copy-on-write # 模板脚本缓存；卷会整体挂载该目录，同步前需先还原跟踪文件
-      env:
-        GIT_SHIM_SAFE_DIRECTORY: 'true'
-      stages:
-        - name: 同步脚本
-          script: |
-            # 卷会整体挂载 scripts/ci，先把本次提交里跟踪的脚本还原（未跟踪的模板脚本由缓存/下载提供）
-            git checkout -- scripts/ci
-            make fetch-scripts
-        - name: 插件逻辑自检
-          script: node test.mjs
-        - name: 辅助脚本自检
-          script: node test-setup-registry.mjs
+    - *trigger_check

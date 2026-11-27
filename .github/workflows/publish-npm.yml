@@ -172,8 +172,10 @@ jobs:
           rc=$?
           set -e
           if [ "$rc" -eq 0 ]; then
+            echo "::notice::npm 公共源已有 ${NPMJS_NAME}@${VERSION}，后续发布步骤将跳过"
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
+            echo "npm 公共源尚无 ${NPMJS_NAME}@${VERSION}，继续发布"
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
