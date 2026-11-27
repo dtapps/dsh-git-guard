@@ -168,6 +168,7 @@
         [ "$VERSION_EXISTS" != "true" ]
       options:
         tag: $TAG
+        title: 'DSHGitGuard $TAG'
         descriptionFromFile: LATEST_CHANGELOG.md
         preRelease: $PRERELEASE
         latest: $MAKE_LATEST
