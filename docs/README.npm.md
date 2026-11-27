@@ -4,11 +4,9 @@
 
 [![npm 版本](https://img.shields.io/npm/v/@dtapp/dsh-git-guard?label=npm)](https://www.npmjs.com/package/@dtapp/dsh-git-guard) [![npm 月下载](https://img.shields.io/npm/dm/@dtapp/dsh-git-guard?label=%E6%9C%88%E4%B8%8B%E8%BD%BD)](https://www.npmjs.com/package/@dtapp/dsh-git-guard) [![npm 近18月下载](https://img.shields.io/npm/d18m/@dtapp/dsh-git-guard?label=%E8%BF%9118%E6%9C%88%E4%B8%8B%E8%BD%BD)](https://www.npmjs.com/package/@dtapp/dsh-git-guard) [![许可证](https://img.shields.io/npm/l/@dtapp/dsh-git-guard?label=%E8%AE%B8%E5%8F%AF%E8%AF%81)](https://github.com/dtapps/dsh-git-guard/blob/main/LICENSE) [![安装体积](https://img.shields.io/npm/unpacked-size/@dtapp/dsh-git-guard?label=%E5%AE%89%E8%A3%85%E4%BD%93%E7%A7%AF)](https://www.npmjs.com/package/@dtapp/dsh-git-guard) [![jsDelivr 月下载](https://data.jsdelivr.com/v1/package/npm/@dtapp/dsh-git-guard/badge)](https://www.jsdelivr.com/package/npm/@dtapp/dsh-git-guard) [![Socket 安全评分](https://socket.dev/api/badge/npm/package/@dtapp/dsh-git-guard)](https://socket.dev/npm/package/@dtapp/dsh-git-guard)
 
-代码仓库：https://github.com/dtapps/dsh-git-guard ；npm 包发布在 npm 公共源 `https://www.npmjs.com/package/@dtapp/dsh-git-guard`（包名 `@dtapp/dsh-git-guard`，公开可读，无需登录或 token）。
-
 ## 安装到 DeepSeekHarness
 
-包在 npm 公共源，DSH 默认就支持，不需要配 `.npmrc`，也不需要添加索引源，直接装即可。在终端执行（`--profile` 后面换成你的 profile 名，如 `web`、`desktop`）：
+在终端执行（`--profile` 后面换成你的 profile 名，如 `web`、`desktop`）：
 
 ```bash
 dsh plugin --profile 你的profile名 add @dtapp/dsh-git-guard

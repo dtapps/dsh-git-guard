@@ -4,8 +4,6 @@
 
 [![版本](https://img.shields.io/github/v/release/dtapps/dsh-git-guard?label=%E7%89%88%E6%9C%AC)](https://github.com/dtapps/dsh-git-guard/releases) [![GitHub 访问](https://visitor-badge.laobi.icu/badge?page_id=github/dtapps/dsh-git-guard)](https://github.com/dtapps/dsh-git-guard) [![星标](https://img.shields.io/github/stars/dtapps/dsh-git-guard?label=%E6%98%9F%E6%A0%87)](https://github.com/dtapps/dsh-git-guard/stargazers) [![分叉](https://img.shields.io/github/forks/dtapps/dsh-git-guard?label=%E5%88%86%E5%8F%89)](https://github.com/dtapps/dsh-git-guard/forks) [![许可证](https://img.shields.io/github/license/dtapps/dsh-git-guard?label=%E8%AE%B8%E5%8F%AF%E8%AF%81)](https://github.com/dtapps/dsh-git-guard/blob/main/LICENSE) [![语言](https://img.shields.io/github/languages/top/dtapps/dsh-git-guard?label=%E8%AF%AD%E8%A8%80)](https://github.com/dtapps/dsh-git-guard) [![仓库大小](https://img.shields.io/github/repo-size/dtapps/dsh-git-guard?label=%E4%BB%93%E5%BA%93%E5%A4%A7%E5%B0%8F)](https://github.com/dtapps/dsh-git-guard)
 
-代码仓库：https://github.com/dtapps/dsh-git-guard ；npm 包发布在 GitHub Packages `https://npm.pkg.github.com`（包名 `@dtapps/dsh-git-guard`，需要 token 才能拉取）。
-
 ## 安装到 DeepSeekHarness
 
 ### 前置一：准备 GitHub token

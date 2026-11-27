@@ -157,16 +157,17 @@ stages: &publish_stages
       preRelease: $PRERELEASE
       latest: $MAKE_LATEST
 
-  # 与 GitHub 发布流程共用 scripts/ci/delete-release.sh：只清 nightly，保留最新 3 个。
-  # 清理失败只告警（allowFailure），不能连累已经成功的发布。
-  - name: 清理旧 nightly Release（保留 3 个）
-    if: |
-      [ "$VERSION_EXISTS" != "true" ] && [ "$CHANNEL" = "nightly" ]
+  # protect 保住正式版、latest/stable 与 rc/beta/alpha，避免 by_count 误删非 nightly 版本；
+  # dry_run 必须显式为 false，否则插件默认只列出待删除版本。
+  - name: 清理旧 nightly（只保留最近 3 个）
+    image: docker.cnb.cool/dtapp/plugins/release-cleaner:latest
     allowFailure: true
-    script: |
-      set -e
-      command -v jq >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq jq)
-      sh scripts/ci/delete-release.sh --platform cnb --keep 3
+    settings:
+      mode: by_count
+      keep: 3
+      protect: '^(v[0-9]+\.[0-9]+\.[0-9]+(-(rc|beta|alpha)[.-]?[0-9A-Za-z.-]*)?|latest|stable)$'
+      delete_git_tag: true
+      dry_run: false
 
   # Release 已成功后再发布 npm；前面任一步失败都不会动制品库。
   - name: 发布到制品库
