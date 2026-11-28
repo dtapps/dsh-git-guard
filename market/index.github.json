@@ -50,6 +50,15 @@
       },
       "versions": [
         {
+          "version": "1.0.7-nightly.20261128",
+          "publishTimestamp": 1795847259,
+          "source": {
+            "type": "npm",
+            "registry": "https://npm.pkg.github.com/"
+          },
+          "engines": {}
+        },
+        {
           "version": "1.0.7-nightly.20261126",
           "publishTimestamp": 1795680184,
           "source": {
